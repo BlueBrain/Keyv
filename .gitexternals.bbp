@@ -1,3 +1,0 @@
-# -*- mode: cmake -*-
-# BBP internal projects use this file as .gitexternals
-# CMake/common ssh://bbpgit.epfl.ch/common/CMake.git master
