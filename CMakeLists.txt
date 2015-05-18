@@ -1,5 +1,4 @@
-# Copyright (c) BBP/EPFL 2011-2014 Stefan.Eilemann@epfl.ch
-# All rights reserved. Do not distribute without further notice.
+# Copyright (c) BBP/EPFL 2011-2015 Stefan.Eilemann@epfl.ch
 
 # Never mind the [] sections. They are only here for doxygen.
 # Remove them in your project.
@@ -8,7 +7,7 @@
 cmake_minimum_required(VERSION 2.8 FATAL_ERROR)
 project(Hello)
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/CMake
-  ${PROJECT_SOURCE_DIR}/CMake/common)
+  ${CMAKE_SOURCE_DIR}/CMake/common)
 include(GitExternal)
 include(SubProject) # Read CMake/common/SubProject.cmake header
 # //! [Setup]
