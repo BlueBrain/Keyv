@@ -4,9 +4,9 @@
 
 source_group(\\ FILES CMakeLists.txt)
 
-set(HELLO_PUBLIC_HEADERS ${COMMON_INCLUDES} world.h)
+set(HELLO_PUBLIC_HEADERS world.h)
 set(HELLO_HEADERS)
-set(HELLO_SOURCES ${COMMON_SOURCES} world.cpp)
+set(HELLO_SOURCES world.cpp)
 set(HELLO_LINK_LIBRARIES ${Boost_PROGRAM_OPTIONS_LIBRARY})
 
 common_library(Hello)
