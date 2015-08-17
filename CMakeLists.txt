@@ -9,7 +9,6 @@ project(Hello)
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/CMake
   ${CMAKE_SOURCE_DIR}/CMake/common)
 include(GitExternal)
-include(SubProject) # Read CMake/common/SubProject.cmake header
 # //! [Setup]
 
 # //! [Versioning]
