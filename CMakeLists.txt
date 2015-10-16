@@ -20,6 +20,9 @@ set(VERSION_ABI 1)
 
 # //! [Scripts]
 set(HELLO_DESCRIPTION "Example project for the Blue Brain Project")
+set(HELLO_MAINTAINER "Blue Brain Project <bbp-open-source@googlegroups.com>")
+set(HELLO_LICENSE LGPL BSD)
+
 set(COMMON_PROJECT_DOMAIN ch.epfl.bluebrain)
 include(Common)
 common_package(Boost REQUIRED COMPONENTS unit_test_framework program_options)
