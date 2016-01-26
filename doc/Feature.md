@@ -9,13 +9,19 @@ here. Copy this file and place it in doc/feature/foo.md.
 
 * Bullet points of what the feature has to fulfil
 
-## New dependencies
+## Dependency Changes
 
-* List all new third-party software, motivate dependency
+* List all new and removed dependencies to all projects (third-party and internal)
+* Motivate dependency
+* Remove section if no new dependencies
 
 ## API
 
 If applicable, list the API for the feature here, otherwise remove section.
+
+## Protocol
+
+If applicable, describe the communication protocol, otherwise remove section.
 
 ## File Format
 
