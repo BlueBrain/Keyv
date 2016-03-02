@@ -37,7 +37,7 @@ project/component/class.
 
 ### 1: Shall we write down issues or not?
 
-_Resolved: Yes:_ Writing down all major decisions at the end of a
+_Resolution: Yes:_ Writing down all major decisions at the end of a
 specification helps to keep track of positive and negative decisions.
 
 Not writing down issues safes time, but has the huge drawback of not
