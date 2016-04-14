@@ -4,18 +4,15 @@
 # Remove them in your project.
 
 # //! [Setup]
-cmake_minimum_required(VERSION 2.8 FATAL_ERROR)
-project(Hello)
+cmake_minimum_required(VERSION 3.1 FATAL_ERROR)
+project(Hello VERSION 1.0.0)
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/CMake
   ${CMAKE_SOURCE_DIR}/CMake/common)
 include(GitExternal)
 # //! [Setup]
 
 # //! [Versioning]
-set(VERSION_MAJOR "1")
-set(VERSION_MINOR "0")
-set(VERSION_PATCH "0")
-set(VERSION_ABI 1)
+set(Hello_VERSION_ABI 1)
 # //! [Versioning]
 
 # //! [Scripts]
@@ -25,8 +22,8 @@ set(HELLO_LICENSE LGPL BSD)
 
 set(COMMON_PROJECT_DOMAIN ch.epfl.bluebrain)
 include(Common)
-common_package(Boost REQUIRED COMPONENTS unit_test_framework program_options)
-common_package_post()
+common_find_package(Boost REQUIRED COMPONENTS unit_test_framework program_options)
+common_find_package_post()
 # //! [Scripts]
 
 # //! [Targets]
