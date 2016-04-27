@@ -6,14 +6,12 @@
 # //! [Setup]
 cmake_minimum_required(VERSION 3.1 FATAL_ERROR)
 project(Hello VERSION 1.0.0)
+set(Hello_VERSION_ABI 1)
+
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/CMake
-  ${CMAKE_SOURCE_DIR}/CMake/common)
+                              ${CMAKE_SOURCE_DIR}/CMake/common)
 include(GitExternal)
 # //! [Setup]
-
-# //! [Versioning]
-set(Hello_VERSION_ABI 1)
-# //! [Versioning]
 
 # //! [Scripts]
 set(HELLO_DESCRIPTION "Example project for the Blue Brain Project")
