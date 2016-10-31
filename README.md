@@ -18,12 +18,3 @@ Hello provides the following functionality:
   cmake ..
   make
 ```
-
-Or using Buildyard:
-
-```
-  git clone https://github.com/Eyescale/Buildyard.git
-  cd Buildyard
-  git clone https://github.com/BlueBrain/config.git config.bluebrain
-  make Hello
-```
