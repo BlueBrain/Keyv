@@ -5,9 +5,9 @@ set(KEYV_PUBLIC_HEADERS
   types.h
   )
 set(KEYV_HEADERS
-  ceph/Map.h
-  leveldb/Map.h
-  memcached/Map.h
+  ceph/Plugin.h
+  leveldb/Plugin.h
+  memcached/Plugin.h
 )
 set(KEYV_SOURCES Map.cpp)
 

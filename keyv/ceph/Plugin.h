@@ -22,7 +22,6 @@
 #include <keyv/stdExt.h>
 
 #include <rados/librados.hpp>
-#include <boost/scoped_ptr.hpp>
 
 namespace keyv
 {
@@ -36,10 +35,10 @@ static void _throw( const std::string& reason, const int error )
 }
 }
 
-class Map : public detail::Map
+class Plugin : public detail::Plugin
 {
 public:
-    Map( const servus::URI& uri )
+    Plugin( const servus::URI& uri )
         : _maxPendingOps( 0 )
     {
         const int init = _cluster.init2( uri.getUserinfo().c_str(),
@@ -63,7 +62,7 @@ public:
 
     }
 
-    virtual ~Map()
+    virtual ~Plugin()
     {
         _context.close();
         _cluster.shutdown();
@@ -198,7 +197,7 @@ private:
     mutable librados::IoCtx _context;
     size_t _maxPendingOps;
 
-    typedef boost::scoped_ptr< librados::AioCompletion > AioPtr;
+    typedef std::unique_ptr< librados::AioCompletion > AioPtr;
 
     struct AsyncRead
     {

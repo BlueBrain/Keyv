@@ -29,7 +29,6 @@
 #include <servus/uri.h>
 
 #include <iostream>
-#include <memory>
 #include <set>
 #include <stdexcept>
 #include <string>
@@ -38,8 +37,7 @@
 
 namespace keyv
 {
-namespace detail { class Map; }
-
+namespace detail { class Plugin; }
 /**
  * Callback for Map::takeValues(), providing the key, pointer and size
  * of the value.
@@ -194,8 +192,8 @@ public:
      * @return the values, or an empty vector if the key is not available.
      * @version 1.9.2
      */
-    template< class V > std::vector< V > getVector( const std::string& key )
-        const;
+    template< class V >
+    std::vector< V > getVector( const std::string& key ) const;
 
     /**
      * Retrieve a value as a set for a key.
@@ -232,7 +230,7 @@ public:
      * @version 1.14
      */
     KEYV_API void getValues( const Strings& keys,
-                                 const ConstValueFunc& func ) const;
+                             const ConstValueFunc& func ) const;
 
     /**
      * Retrieve values from a list of keys and calls back for each found value.
@@ -247,8 +245,7 @@ public:
      * @param func callback function which is called for each found key
      * @version 1.14
      */
-    KEYV_API void takeValues( const Strings& keys,
-                                  const ValueFunc& func ) const;
+    KEYV_API void takeValues( const Strings& keys, const ValueFunc& func ) const;
 
     /** Flush outstanding operations to the backend storage. @version 1.11 */
     KEYV_API bool flush();
@@ -262,7 +259,7 @@ private:
     Map& operator = ( const Map& ) = delete;
     Map& operator = ( Map&& ) = delete;
 
-    detail::Map* const _impl;
+    std::unique_ptr< detail::Plugin > _impl;
 
     KEYV_API bool _swap() const;
 

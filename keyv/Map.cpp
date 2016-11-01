@@ -26,11 +26,11 @@ namespace keyv
 {
 namespace detail
 {
-class Map
+class Plugin
 {
 public:
-    Map() : swap( false ) {}
-    virtual ~Map() {}
+    Plugin() : swap( false ) {}
+    virtual ~Plugin() {}
     virtual size_t setQueueDepth( const size_t ) { return 0; }
     virtual bool insert( const std::string& key, const void* data,
                          const size_t size ) = 0;
@@ -52,27 +52,28 @@ public:
 }
 }
 
-// Impls - need detail::Map interface above
-#include "ceph/Map.h"
-#include "leveldb/Map.h"
-#include "memcached/Map.h"
+// Impls - need detail::Plugin interface above
+#include "ceph/Plugin.h"
+#include "leveldb/Plugin.h"
+#include "memcached/Plugin.h"
 
 namespace
 {
-keyv::detail::Map* _newImpl( const servus::URI& uri )
+typedef std::unique_ptr< keyv::detail::Plugin > PluginPtr;
+PluginPtr _newImpl( const servus::URI& uri )
 {
     // Update handles() below on any change here!
 #ifdef KEYV_USE_RADOS
-    if( keyv::ceph::Map::handles( uri ))
-        return new keyv::ceph::Map( uri );
+    if( keyv::ceph::Plugin::handles( uri ))
+        return PluginPtr( new keyv::ceph::Plugin( uri ));
 #endif
 #ifdef KEYV_USE_LEVELDB
-    if( keyv::leveldb::Map::handles( uri ))
-        return new keyv::leveldb::Map( uri );
+    if( keyv::leveldb::Plugin::handles( uri ))
+        return PluginPtr( new keyv::leveldb::Plugin( uri ));
 #endif
 #ifdef KEYV_USE_LIBMEMCACHED
-    if( keyv::memcached::Map::handles( uri ))
-        return new keyv::memcached::Map( uri );
+    if( keyv::memcached::Plugin::handles( uri ))
+        return PluginPtr( new keyv::memcached::Plugin( uri ));
 #endif
 
     LBTHROW( std::runtime_error(
@@ -97,21 +98,19 @@ Map::~Map()
     for( std::pair< size_t, size_t > i : _impl->values )
         std::cout << i.first << ", " << i.second << std::endl;
 #endif
-    delete _impl;
 }
 
 MapPtr Map::createCache()
 {
 #ifdef KEYV_USE_LIBMEMCACHED
     if( ::getenv( "MEMCACHED_SERVERS" ))
-        return MapPtr( new Map(
-                                     servus::URI( "memcached://" )));
+        return MapPtr( new Map( servus::URI( "memcached://" )));
 #endif
 #ifdef KEYV_USE_LEVELDB
     const char* leveldb = ::getenv( "LEVELDB_CACHE" );
     if( leveldb )
-        return MapPtr( new Map( servus::URI(
-                                      std::string( "leveldb://" ) + leveldb )));
+        return MapPtr( new Map( servus::URI( std::string( "leveldb://" ) +
+                                             leveldb )));
 #endif
 
     return MapPtr();
@@ -120,15 +119,15 @@ MapPtr Map::createCache()
 bool Map::handles( const servus::URI& uri LB_UNUSED )
 {
 #ifdef KEYV_USE_LEVELDB
-    if( keyv::leveldb::Map::handles( uri ))
+    if( keyv::leveldb::Plugin::handles( uri ))
         return true;
 #endif
 #ifdef KEYV_USE_RADOS
-    if( keyv::ceph::Map::handles( uri ))
+    if( keyv::ceph::Plugin::handles( uri ))
         return true;
 #endif
 #ifdef KEYV_USE_LIBMEMCACHED
-    if( keyv::memcached::Map::handles( uri ))
+    if( keyv::memcached::Plugin::handles( uri ))
         return true;
 #endif
     return false;

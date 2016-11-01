@@ -45,12 +45,12 @@ db::DB* _open( const servus::URI& uri )
 }
 }
 
-class Map : public detail::Map
+class Plugin : public detail::Plugin
 {
 public:
-    explicit Map( const servus::URI& uri ) : _db( _open( uri )) {}
+    explicit Plugin( const servus::URI& uri ) : _db( _open( uri )) {}
 
-    virtual ~Map() { delete _db; }
+    virtual ~Plugin() { delete _db; }
 
     static bool handles( const servus::URI& uri )
         { return uri.getScheme() == "leveldb" || uri.getScheme().empty(); }

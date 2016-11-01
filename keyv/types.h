@@ -36,6 +36,8 @@
 
 #include <keyv/defines.h>
 #include <lunchbox/types.h>
+#include <memory>
+
 namespace keyv
 {
 using lunchbox::Strings;

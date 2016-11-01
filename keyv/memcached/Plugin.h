@@ -77,10 +77,10 @@ memcached_st* _getInstance( const servus::URI& uri )
 // characters, max length). We therefore hash incoming keys and use their string
 // representation.
 
-class Map : public detail::Map
+class Plugin : public detail::Plugin
 {
 public:
-    explicit Map( const servus::URI& uri )
+    explicit Plugin( const servus::URI& uri )
         : _instance( _getInstance( uri ))
         , _lastError( MEMCACHED_SUCCESS )
     {
@@ -89,7 +89,7 @@ public:
                                       std::to_string( uri ) + " failed" );
     }
 
-    virtual ~Map() { memcached_free( _instance ); }
+    virtual ~Plugin() { memcached_free( _instance ); }
 
     static bool handles( const servus::URI& uri )
         { return uri.getScheme() == "memcached"; }
