@@ -39,6 +39,10 @@
 namespace keyv
 {
 using lunchbox::Strings;
+
+class Map;
+
+typedef std::shared_ptr< Map > MapPtr;
 }
 
 #endif //KEYV_TYPES_H

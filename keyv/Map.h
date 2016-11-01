@@ -40,9 +40,6 @@ namespace keyv
 {
 namespace detail { class Map; }
 
-class Map;
-typedef std::shared_ptr< Map > MapPtr;
-
 /**
  * Callback for Map::takeValues(), providing the key, pointer and size
  * of the value.
