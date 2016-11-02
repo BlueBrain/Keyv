@@ -11,7 +11,7 @@ include(GitExternal)
 set(KEYV_DESCRIPTION
   "Key-Value based storage and caching using a variety of backends")
 set(KEYV_MAINTAINER "Blue Brain Project <bbp-open-source@googlegroups.com>")
-set(KEYV_LICENSE LGPL BSD)
+set(KEYV_LICENSE LGPL)
 
 set(KEYV_DEB_DEPENDS libboost-test-dev
   libleveldb-dev libmemcached-dev libmemcached-tools librados-dev memcached)
