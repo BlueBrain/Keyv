@@ -9,4 +9,4 @@ if(LEVELDB_FOUND)
 endif()
 
 include(CommonCTest)
-install_files(share/Hello/tests FILES ${TEST_FILES} COMPONENT examples)
+install_files(share/Keyv/tests FILES ${TEST_FILES} COMPONENT examples)
