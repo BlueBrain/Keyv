@@ -2,7 +2,7 @@
 
 cmake_minimum_required(VERSION 3.1 FATAL_ERROR)
 project(Keyv VERSION 1.0.0)
-set(Hello_VERSION_ABI 1)
+set(Keyv_VERSION_ABI 1)
 
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/CMake
                               ${CMAKE_SOURCE_DIR}/CMake/common)
