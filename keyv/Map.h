@@ -136,7 +136,11 @@ public:
      * @version 1.9.2
      */
     template< class V > bool insert( const std::string& key, const V& value )
+#if __GNUG__ && __GNUC__ < 5
+        { return __has_trivial_copy(V) ? _insert( key, value, std::true_type( )) : _insert( key, value, std::false_type( ));}
+#else
         { return _insert( key, value, std::is_trivially_copyable< V >( ));}
+#endif
     KEYV_API bool insert( const std::string& key, const void* data,
                               size_t size );
 
@@ -151,7 +155,11 @@ public:
      */
     template< class V >
     bool insert( const std::string& key, const std::vector< V >& values )
+#if __GNUG__ && __GNUC__ < 5
+        { return __has_trivial_copy(V) ? _insert( key, values, std::true_type( )) : _insert( key, values, std::false_type( ));}
+#else
         { return _insert( key, values, std::is_trivially_copyable< V >( ));}
+#endif
 
     /**
      * Insert or update a set of values in the database.
@@ -292,7 +300,11 @@ private:
 
     template< class V > V _get( const std::string& k ) const
     {
+#if __GNUG__ && __GNUC__ < 5
+        if( !__has_trivial_copy(V) )
+#else
         if( !std::is_trivially_copyable< V >::value )
+#endif
             LBTHROW( std::runtime_error( "Can't retrieve non-POD " +
                                          lunchbox::className( V( ))));
         if( std::is_pointer< V >::value )
