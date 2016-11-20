@@ -68,7 +68,7 @@ template< class T > void insertVector( Map& map, const size_t elems )
 {
     std::vector< T > vector;
     for( size_t i = 0; i < elems; ++i )
-        vector.push_back( i );
+        vector.push_back( T(i) );
     TEST( map.insert( std::string( "bulk" ) + typeid( vector ).name(), vector ));
 }
 

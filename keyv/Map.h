@@ -28,6 +28,7 @@
 #include <lunchbox/log.h> // LBTHROW
 #include <servus/uri.h>
 
+#include <functional>
 #include <iostream>
 #include <set>
 #include <stdexcept>
