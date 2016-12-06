@@ -32,5 +32,8 @@ common_find_package_post()
 add_subdirectory(keyv)
 add_subdirectory(tests)
 
+set(DOXYGEN_MAINPAGE_MD README.md)
+set(DOXYGEN_EXTRA_INPUT ${PROJECT_SOURCE_DIR}/README.md
+  ${PROJECT_SOURCE_DIR}/doc/)
 include(CPackConfig)
 include(DoxygenRule)
