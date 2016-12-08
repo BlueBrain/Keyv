@@ -179,8 +179,8 @@ private:
             {
                 const std::string key( memcached_result_key_value( fetched ),
                                        memcached_result_key_length( fetched ));
-                func( hashes[key], getFunc( fetched ),
-                      memcached_result_length( fetched ));
+                const size_t size = memcached_result_length( fetched );
+                func( hashes[key], getFunc( fetched ), size );
             }
             memcached_result_free( fetched );
         }
