@@ -22,6 +22,7 @@ include(Common)
 
 common_find_package(Boost REQUIRED COMPONENTS unit_test_framework)
 common_find_package(Lunchbox REQUIRED)
+common_find_package(Pression REQUIRED)
 common_find_package(Servus REQUIRED)
 common_find_package(leveldb)
 common_find_package(libmemcached 1.0.12)
