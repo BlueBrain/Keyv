@@ -184,7 +184,7 @@ void setup( const std::string& uriStr )
     {
         TEST( std::find( keys.begin(), keys.end(), key) != keys.end( ));
         TEST( data );
-        TEST( size > 0 );
+        TESTINFO( size > 0, key << " in " << uriStr );
         ++numResults;
         free( data );
     });
