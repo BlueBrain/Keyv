@@ -43,14 +43,14 @@ namespace detail { class Plugin; }
  * Callback for Map::takeValues(), providing the key, pointer and size
  * of the value.
  */
-typedef std::function< void( const std::string&, char*, size_t ) > ValueFunc;
+using ValueFunc = std::function< void( const std::string&, char*, size_t ) >;
 
 /**
  * Callback for Map::getValues(), providing the key, pointer and size
  * of the value.
  */
-typedef std::function< void( const std::string&, const char*,
-                             size_t ) > ConstValueFunc;
+using ConstValueFunc = std::function< void( const std::string&, const char*,
+                                            size_t ) >;
 
 /**
  * Unified interface to save key-value pairs in a  store.
@@ -254,7 +254,7 @@ public:
      * @param func callback function which is called for each found key
      * @version 1.14
      */
-    KEYV_API void takeValues( const Strings& keys, const ValueFunc& func ) const;
+    KEYV_API void takeValues( const Strings& keys, const ValueFunc& func )const;
 
     /** Flush outstanding operations to the backend storage. @version 1.11 */
     KEYV_API bool flush();

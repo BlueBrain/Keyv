@@ -182,7 +182,7 @@ void setup( const std::string& uriStr )
     map.takeValues( keys, [&]( const std::string& key, char* data,
                                const size_t size )
     {
-        TEST( std::find( keys.begin(), keys.end(), key) != keys.end( ));
+        TESTINFO( std::find( keys.begin(), keys.end(), key) != keys.end(), key);
         TEST( data );
         TESTINFO( size > 0, key << " in " << uriStr );
         ++numResults;

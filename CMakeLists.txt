@@ -1,8 +1,8 @@
 # Copyright (c) BBP/EPFL 2016 Stefan.Eilemann@epfl.ch
 
 cmake_minimum_required(VERSION 3.1 FATAL_ERROR)
-project(Keyv VERSION 1.0.0)
-set(Keyv_VERSION_ABI 1)
+project(Keyv VERSION 1.1.0)
+set(Keyv_VERSION_ABI 2)
 
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/CMake
                               ${CMAKE_SOURCE_DIR}/CMake/common)
@@ -22,6 +22,7 @@ include(Common)
 
 common_find_package(Boost REQUIRED COMPONENTS unit_test_framework)
 common_find_package(Lunchbox REQUIRED)
+common_find_package(Pression REQUIRED)
 common_find_package(Servus REQUIRED)
 common_find_package(leveldb)
 common_find_package(libmemcached 1.0.12)

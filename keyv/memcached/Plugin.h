@@ -19,8 +19,10 @@
 
 #ifdef KEYV_USE_LIBMEMCACHED
 #include <libmemcached/memcached.h>
-
+#include <pression/data/CompressorZSTD.h>
+#include <pression/data/Registry.h>
 #include <unordered_map>
+#include <utility>
 
 namespace keyv
 {
@@ -75,7 +77,8 @@ memcached_st* _getInstance( const servus::URI& uri )
 
 // memcached has relative strict requirements on keys (no whitespace or control
 // characters, max length). We therefore hash incoming keys and use their string
-// representation.
+// representation. If we compress data, the compressor name is appended to the
+// key to avoid name clashes.
 
 class Plugin : public detail::Plugin
 {
@@ -97,10 +100,12 @@ public:
     bool insert( const std::string& key, const void* data, const size_t size )
         final
     {
-        const std::string& hash = servus::make_uint128( key ).getString();
+        const auto compressed{ _compress( data, size )};
+        const std::string& hash = _hash( key );
         const memcached_return_t ret =
             memcached_set( _instance, hash.c_str(), hash.length(),
-                           (const char*)data, size, (time_t)0, (uint32_t)0 );
+                           (char*)compressed.getData(), compressed.getSize(),
+                           (time_t)0, (uint32_t)0 );
 
         if( ret != MEMCACHED_SUCCESS && _lastError != ret )
         {
@@ -108,38 +113,68 @@ public:
                    << memcached_strerror( _instance, ret ) << std::endl;
             _lastError = ret;
         }
-
         return ret == MEMCACHED_SUCCESS;
     }
 
     std::string operator [] ( const std::string& key ) const final
     {
-        const std::string& hash = servus::make_uint128( key ).getString();
+        const std::string& hash = _hash( key );
         size_t size = 0;
         uint32_t flags = 0;
         memcached_return_t ret = MEMCACHED_SUCCESS;
         char* data = memcached_get( _instance, hash.c_str(), hash.length(),
                                     &size, &flags, &ret );
+        if( ret != MEMCACHED_SUCCESS )
+            return std::string();
+
+        const uint64_t fullSize = *reinterpret_cast< uint64_t* >( data );
         std::string value;
-        if( ret == MEMCACHED_SUCCESS )
-        {
-            value.assign( data, data + size );
-            free( data );
-        }
+        value.resize( fullSize );
+        _decompress( (uint8_t*)value.data(), fullSize,
+                     (const uint8_t*)data, size );
+        ::free( data );
         return value;
     }
 
     void takeValues( const Strings& keys, const ValueFunc& func ) const final
     {
-        _multiGet( keys, func, []( memcached_result_st* fetched )
-                           { return memcached_result_take_value( fetched ); } );
+        const auto decompress =
+            [this]( memcached_result_st* fetched, const size_t size )
+            {
+                char* data = memcached_result_take_value( fetched );
+                if( !data )
+                    return std::make_pair< char*, size_t >( nullptr, 0 );
+
+                const uint64_t fullSize =
+                    *reinterpret_cast< const uint64_t* >( data );
+                char* decompressed = (char*)::malloc( fullSize );
+                _decompress( (uint8_t*)decompressed, fullSize,
+                             (uint8_t*)data, size );
+                ::free( data );
+                return std::pair< char*, size_t >({ decompressed, fullSize });
+            };
+            _multiGet( keys, func, decompress );
     }
 
     void getValues( const Strings& keys, const ConstValueFunc& func ) const
         final
     {
-        _multiGet( keys, func, []( memcached_result_st* fetched )
-                                { return memcached_result_value( fetched ); } );
+        lunchbox::Bufferb decompressed;
+        const auto decompress =
+            [&]( memcached_result_st* fetched, const size_t size )
+            {
+                const char* data = memcached_result_value( fetched );
+                if( !data )
+                    return std::make_pair< const char*, size_t >( nullptr, 0 );
+                const uint64_t fullSize =
+                    *reinterpret_cast< const uint64_t* >( data );
+                decompressed.resize( fullSize );
+                _decompress( decompressed.getData(), fullSize,
+                             (const uint8_t*)data, size );
+                return std::pair< const char*, size_t >(
+                    (char*)decompressed.getData(), fullSize );
+            };
+        _multiGet( keys, func, decompress );
     }
 
     bool flush() final
@@ -161,7 +196,7 @@ private:
 
         for( const auto& key : keys )
         {
-            const std::string hash = servus::make_uint128( key ).getString();
+            const std::string& hash = _hash( key );
             hashes[hash] = key;
             hashCopy.push_back( hash );
             keysArray.push_back( hashCopy.back().c_str( ));
@@ -171,7 +206,6 @@ private:
         memcached_return ret = memcached_mget( _instance, keysArray.data(),
                                                keyLengths.data(),
                                                keysArray.size( ));
-
         memcached_result_st* fetched;
         while( (fetched = memcached_fetch_result( _instance, nullptr, &ret )) )
         {
@@ -180,16 +214,64 @@ private:
                 const std::string key( memcached_result_key_value( fetched ),
                                        memcached_result_key_length( fetched ));
                 const size_t size = memcached_result_length( fetched );
-                func( hashes[key], getFunc( fetched ), size );
+                const auto& result = getFunc( fetched, size );
+                func( hashes[key], result.first, result.second );
             }
             memcached_result_free( fetched );
         }
     }
 
+
+    lunchbox::Bufferb _compress( const void* data, const size_t size ) const
+    {
+        lunchbox::Bufferb compressed;
+        const auto& results = _compressor.compress( (const uint8_t*)data,
+                                                     size );
+        compressed.resize( sizeof( uint64_t ) + // uncompressed size
+                           results.size() * sizeof( uint64_t ) + // chunk sizes
+                           pression::data::getDataSize( results )); // chunks
+        uint8_t* ptr = compressed.getData();
+
+        // uncompressed size
+        *reinterpret_cast< uint64_t* >( ptr ) = size;
+        ptr += sizeof( uint64_t );
+
+        for( const auto& result : results )
+        {
+            // chunk size
+            *reinterpret_cast< uint64_t* >( ptr ) = result.getSize();
+            ptr += sizeof( uint64_t );
+            // chunk
+            ::memcpy( ptr, result.getData(), result.getSize( ));
+            ptr += result.getSize();
+        }
+        return compressed;
+    }
+
+    void _decompress( uint8_t* decompressed, const size_t fullSize,
+                      const uint8_t* data, const size_t size ) const
+    {
+        std::vector< std::pair< const uint8_t*, size_t >> inputs;
+        for( size_t i = sizeof( uint64_t ); i < size;
+             i += sizeof( uint64_t ) + inputs.back().second )
+        {
+            const size_t chunkSize =
+                *reinterpret_cast< const uint64_t* >( data + i );
+            inputs.push_back({ data + i + sizeof( uint64_t ), chunkSize });
+        }
+        _compressor.decompress( inputs, decompressed, fullSize );
+    }
+
+    std::string _hash( const std::string& key ) const
+    {
+        return servus::make_uint128( key + _compressor.getName( )).getString();
+    }
+
     memcached_st* const _instance;
     memcached_return_t _lastError;
+    mutable pression::data::CompressorZSTD< 1 > _compressor;
 };
-}
-}
 
+}
+}
 #endif
