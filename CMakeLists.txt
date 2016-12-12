@@ -1,8 +1,8 @@
 # Copyright (c) BBP/EPFL 2016 Stefan.Eilemann@epfl.ch
 
 cmake_minimum_required(VERSION 3.1 FATAL_ERROR)
-project(Keyv VERSION 1.0.0)
-set(Keyv_VERSION_ABI 1)
+project(Keyv VERSION 1.1.0)
+set(Keyv_VERSION_ABI 2)
 
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/CMake
                               ${CMAKE_SOURCE_DIR}/CMake/common)

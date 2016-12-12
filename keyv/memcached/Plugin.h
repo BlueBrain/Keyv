@@ -100,28 +100,7 @@ public:
     bool insert( const std::string& key, const void* data, const size_t size )
         final
     {
-        lunchbox::Bufferb compressed;
-        const auto& results = _compressor.compress( (const uint8_t*)data,
-                                                     size );
-        compressed.resize( sizeof( uint64_t ) + // uncompressed size
-                           results.size() * sizeof( uint64_t ) + // chunk sizes
-                           pression::data::getDataSize( results )); // chunks
-        uint8_t* ptr = compressed.getData();
-
-        // uncompressed size
-        *reinterpret_cast< uint64_t* >( ptr ) = size;
-        ptr += sizeof( uint64_t );
-
-        for( const auto& result : results )
-        {
-            // chunk size
-            *reinterpret_cast< uint64_t* >( ptr ) = result.getSize();
-            ptr += sizeof( uint64_t );
-            // chunk
-            ::memcpy( ptr, result.getData(), result.getSize( ));
-            ptr += result.getSize();
-        }
-
+        const auto compressed{ _compress( data, size )};
         const std::string& hash = _hash( key );
         const memcached_return_t ret =
             memcached_set( _instance, hash.c_str(), hash.length(),
@@ -192,7 +171,7 @@ public:
                 decompressed.resize( fullSize );
                 _decompress( decompressed.getData(), fullSize,
                              (const uint8_t*)data, size );
-                return std::make_pair< const char*, size_t >(
+                return std::pair< const char*, size_t >(
                     (char*)decompressed.getData(), fullSize );
             };
         _multiGet( keys, func, decompress );
@@ -240,6 +219,33 @@ private:
             }
             memcached_result_free( fetched );
         }
+    }
+
+
+    lunchbox::Bufferb _compress( const void* data, const size_t size ) const
+    {
+        lunchbox::Bufferb compressed;
+        const auto& results = _compressor.compress( (const uint8_t*)data,
+                                                     size );
+        compressed.resize( sizeof( uint64_t ) + // uncompressed size
+                           results.size() * sizeof( uint64_t ) + // chunk sizes
+                           pression::data::getDataSize( results )); // chunks
+        uint8_t* ptr = compressed.getData();
+
+        // uncompressed size
+        *reinterpret_cast< uint64_t* >( ptr ) = size;
+        ptr += sizeof( uint64_t );
+
+        for( const auto& result : results )
+        {
+            // chunk size
+            *reinterpret_cast< uint64_t* >( ptr ) = result.getSize();
+            ptr += sizeof( uint64_t );
+            // chunk
+            ::memcpy( ptr, result.getData(), result.getSize( ));
+            ptr += result.getSize();
+        }
+        return compressed;
     }
 
     void _decompress( uint8_t* decompressed, const size_t fullSize,
