@@ -100,7 +100,7 @@ public:
     bool insert( const std::string& key, const void* data, const size_t size )
         final
     {
-        const auto compressed{ _compress( data, size )};
+        const lunchbox::Bufferb compressed{ _compress( data, size )};
         const std::string& hash = _hash( key );
         const memcached_return_t ret =
             memcached_set( _instance, hash.c_str(), hash.length(),
