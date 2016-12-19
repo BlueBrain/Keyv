@@ -19,6 +19,7 @@
 
 #ifdef KEYV_USE_LIBMEMCACHED
 #include <libmemcached/memcached.h>
+#include <pression/data/CompressorSnappy.h>
 #include <pression/data/CompressorZSTD.h>
 #include <pression/data/Registry.h>
 #include <unordered_map>
@@ -269,7 +270,7 @@ private:
 
     memcached_st* const _instance;
     memcached_return_t _lastError;
-    mutable pression::data::CompressorZSTD< 1 > _compressor;
+    mutable pression::data::CompressorSnappy _compressor;
 };
 
 }
