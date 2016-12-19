@@ -36,6 +36,7 @@ memcached_st* _getInstance( const servus::URI& uri )
     const std::string& host = uri.getHost();
     const int16_t port = uri.getPort() ? uri.getPort() : 11211;
     memcached_st* instance = memcached_create( 0 );
+    size_t nServers = 1;
 
     if( uri.getHost().empty( ))
     {
@@ -61,17 +62,20 @@ memcached_st* _getInstance( const servus::URI& uri )
                     data.clear();
                 else
                     data = data.substr( comma + 1 );
+                ++nServers;
             }
-
+            --nServers; // adjust for pre-set '1' in initialization
         }
         else
             memcached_server_add( instance, "127.0.0.1", port );
-
     }
     else
         memcached_server_add( instance, host.c_str(), port );
 
     memcached_behavior_set( instance, MEMCACHED_BEHAVIOR_NO_BLOCK, 1 );
+    memcached_behavior_set( instance, MEMCACHED_BEHAVIOR_NOREPLY, 1 );
+    memcached_behavior_set( instance, MEMCACHED_BEHAVIOR_SOCKET_RECV_SIZE,
+                            LB_1MB * nServers );
     return instance;
 }
 }

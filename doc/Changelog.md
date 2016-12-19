@@ -2,6 +2,8 @@
 
 # git master
 
+* [9](https://github.com/BlueBrain/Keyv/pull/9):
+  Fix reading large amount of data from memcached
 * [8](https://github.com/BlueBrain/Keyv/pull/8):
   Add compression for memcached
 * [7](https://github.com/BlueBrain/Keyv/pull/7):
