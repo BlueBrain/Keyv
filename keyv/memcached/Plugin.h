@@ -72,8 +72,16 @@ memcached_st* _getInstance( const servus::URI& uri )
     else
         memcached_server_add( instance, host.c_str(), port );
 
-    memcached_behavior_set( instance, MEMCACHED_BEHAVIOR_NO_BLOCK, 1 );
+    // delivers better distribution and allows servers to be added to the
+    // cluster with minimal cache losses
+    memcached_behavior_set( instance, MEMCACHED_BEHAVIOR_DISTRIBUTION,
+                            MEMCACHED_DISTRIBUTION_CONSISTENT );
+    memcached_behavior_set( instance, MEMCACHED_BEHAVIOR_NO_BLOCK, 1 ); // nop?
+    // fire-and-forget writes
     memcached_behavior_set( instance, MEMCACHED_BEHAVIOR_NOREPLY, 1 );
+    // buffer sizes
+    memcached_behavior_set( instance, MEMCACHED_BEHAVIOR_SOCKET_SEND_SIZE,
+                            LB_1MB * nServers );
     memcached_behavior_set( instance, MEMCACHED_BEHAVIOR_SOCKET_RECV_SIZE,
                             LB_1MB * nServers );
     return instance;
@@ -208,9 +216,10 @@ private:
             keyLengths.push_back( hashCopy.back().length( ));
         }
 
-        memcached_return ret = memcached_mget( _instance, keysArray.data(),
-                                               keyLengths.data(),
-                                               keysArray.size( ));
+        memcached_mget( _instance, keysArray.data(),
+                        keyLengths.data(), keysArray.size( ));
+
+        memcached_return ret = MEMCACHED_SUCCESS;
         memcached_result_st* fetched;
         while( (fetched = memcached_fetch_result( _instance, nullptr, &ret )) )
         {
