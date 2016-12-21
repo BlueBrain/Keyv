@@ -25,6 +25,8 @@
 #include <unordered_map>
 #include <utility>
 
+//#define KEYV_MEMCACHED_COMPRESSION
+
 namespace keyv
 {
 namespace memcached
@@ -113,12 +115,18 @@ public:
     bool insert( const std::string& key, const void* data, const size_t size )
         final
     {
-        const lunchbox::Bufferb compressed{ _compress( data, size )};
         const std::string& hash = _hash( key );
+#ifdef KEYV_MEMCACHED_COMPRESSION
+        const lunchbox::Bufferb compressed{ _compress( data, size )};
         const memcached_return_t ret =
             memcached_set( _instance, hash.c_str(), hash.length(),
                            (char*)compressed.getData(), compressed.getSize(),
                            (time_t)0, (uint32_t)0 );
+#else
+        const memcached_return_t ret =
+            memcached_set( _instance, hash.c_str(), hash.length(),
+                           (const char*)data, size, (time_t)0, (uint32_t)0 );
+#endif
 
         if( ret != MEMCACHED_SUCCESS && _lastError != ret )
         {
@@ -140,11 +148,15 @@ public:
         if( ret != MEMCACHED_SUCCESS )
             return std::string();
 
-        const uint64_t fullSize = *reinterpret_cast< uint64_t* >( data );
         std::string value;
+#ifdef KEYV_MEMCACHED_COMPRESSION
+        const uint64_t fullSize = *reinterpret_cast< uint64_t* >( data );
         value.resize( fullSize );
         _decompress( (uint8_t*)value.data(), fullSize,
                      (const uint8_t*)data, size );
+#else
+        value.assign( data, data + size );
+#endif
         ::free( data );
         return value;
     }
@@ -158,6 +170,7 @@ public:
                 if( !data )
                     return std::make_pair< char*, size_t >( nullptr, 0 );
 
+#ifdef KEYV_MEMCACHED_COMPRESSION
                 const uint64_t fullSize =
                     *reinterpret_cast< const uint64_t* >( data );
                 char* decompressed = (char*)::malloc( fullSize );
@@ -165,6 +178,9 @@ public:
                              (uint8_t*)data, size );
                 ::free( data );
                 return std::pair< char*, size_t >({ decompressed, fullSize });
+#else
+                return std::pair< char*, size_t >({ data, size });
+#endif
             };
             _multiGet( keys, func, decompress );
     }
@@ -179,6 +195,8 @@ public:
                 const char* data = memcached_result_value( fetched );
                 if( !data )
                     return std::make_pair< const char*, size_t >( nullptr, 0 );
+
+#ifdef KEYV_MEMCACHED_COMPRESSION
                 const uint64_t fullSize =
                     *reinterpret_cast< const uint64_t* >( data );
                 decompressed.resize( fullSize );
@@ -186,6 +204,9 @@ public:
                              (const uint8_t*)data, size );
                 return std::pair< const char*, size_t >(
                     (char*)decompressed.getData(), fullSize );
+#else
+                return std::pair< const char*, size_t >({ data, size });
+#endif
             };
         _multiGet( keys, func, decompress );
     }
@@ -235,7 +256,7 @@ private:
         }
     }
 
-
+#ifdef KEYV_MEMCACHED_COMPRESSION
     lunchbox::Bufferb _compress( const void* data, const size_t size ) const
     {
         lunchbox::Bufferb compressed;
@@ -280,10 +301,16 @@ private:
     {
         return servus::make_uint128( key + _compressor.getName( )).getString();
     }
+#else
+    std::string _hash( const std::string& key ) const
+        { return servus::make_uint128( key ).getString(); }
+#endif
 
     memcached_st* const _instance;
     memcached_return_t _lastError;
+#ifdef KEYV_MEMCACHED_COMPRESSION
     mutable pression::data::CompressorSnappy _compressor;
+#endif
 };
 
 }
