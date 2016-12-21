@@ -2,6 +2,8 @@
 
 # git master
 
+* [10](https://github.com/BlueBrain/Keyv/pull/10):
+  Tune memcached performance
 * [9](https://github.com/BlueBrain/Keyv/pull/9):
   Fix reading large amount of data from memcached
 * [8](https://github.com/BlueBrain/Keyv/pull/8):
