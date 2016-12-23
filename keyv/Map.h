@@ -84,6 +84,8 @@ public:
      * @version 1.9.2
      */
     KEYV_API explicit Map( const servus::URI& uri );
+    KEYV_API Map( Map&& from );
+    KEYV_API Map& operator = ( Map&& from );
 
     /** Destruct the  map. @version 1.9.2 */
     KEYV_API ~Map();
@@ -264,9 +266,7 @@ public:
 
 private:
     Map( const Map& ) = delete;
-    Map( Map&& ) = delete;
     Map& operator = ( const Map& ) = delete;
-    Map& operator = ( Map&& ) = delete;
 
     std::unique_ptr< detail::Plugin > _impl;
 
