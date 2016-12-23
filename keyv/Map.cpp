@@ -88,6 +88,18 @@ Map::Map( const servus::URI& uri )
     : _impl( _newImpl( uri ))
 {}
 
+Map::Map( Map&& from )
+  : _impl( std::move( from._impl ))
+{}
+
+Map& Map::operator = ( Map&& from )
+{
+    if( this != &from )
+        _impl = std::move( from._impl );
+    return *this;
+}
+
+
 Map::~Map()
 {
 #ifdef HISTOGRAM
