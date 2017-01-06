@@ -164,8 +164,6 @@ void setup( const std::string& uriStr )
 
     insertVector< int >( map, LB_128KB );
     insertVector< uint16_t >( map, LB_128KB );
-    map.fetch( std::string( "bulk" ) + typeid( std::vector< int > ).name( ));
-    map.fetch( std::string( "bulk" ) + typeid( std::vector<uint16_t> ).name( ));
     readVector< int >( map, LB_128KB );
     readVector< uint16_t >( map, LB_128KB );
 
@@ -257,19 +255,17 @@ void benchmark( const std::string& uriStr, const uint64_t queueDepth,
         for( i = 0; i < wOps && clock.getTime64() < loopTime; ++i ) // read keys
             map[ keys[ i % (queueDepth+1) ]];
     }
-    else // fetch + async read
+    else // async read
     {
-        for( i = 0; i < queueDepth; ++i ) // prefetch queueDepth keys
-            TEST( map.fetch( keys[ i % (queueDepth+1) ], valueSize ) );
-
-        for( ; i < wOps && clock.getTime64() < loopTime; ++i ) // read keys
+        const auto getValue = []( const std::string&, const char*, size_t ) {};
+        for( i = 0; i < wOps && clock.getTime64() < loopTime; i += queueDepth )
         {
-            map[ keys[ (i - queueDepth) % (queueDepth+1) ] ];
-            TEST( map.fetch( keys[ i % (queueDepth+1) ], valueSize ));
+            lunchbox::Strings subKeys;
+            subKeys.reserve( queueDepth );
+            for( size_t j = i; j < i + queueDepth; ++j )
+                subKeys.push_back( keys[ j % (queueDepth+1) ]);
+            map.getValues( subKeys, getValue );
         }
-
-        for( uint64_t j = i - queueDepth; j <= i; ++j ) // drain fetched keys
-            map[ keys[ j % (queueDepth+1) ]];
     }
     time = clock.getTimef() / 1000.f;
 
@@ -342,13 +338,7 @@ int main( const int argc, char* argv[] )
 #endif
 #ifdef KEYV_USE_LIBMEMCACHED
     if( testAvailable( "memcached://" ))
-    {
-        setup( "memcached://" );
-        read( "memcached://" );
-        if( perfTest )
-           for( size_t i=1; i <= 65536; i = i<<2 )
-               benchmark( "memcached://", 0, i );
-    }
+        tests.push_back( TestSpec( "memcached://", 65536, 65536 ));
 #endif
 #ifdef KEYV_USE_RADOS
     tests.push_back( TestSpec(

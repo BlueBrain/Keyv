@@ -107,7 +107,80 @@ public:
         return _flush( _maxPendingOps );
     }
 
-    bool fetch( const std::string& key, const size_t sizeHint ) const final
+    std::string operator [] ( const std::string& key ) const final
+    {
+        const librados::bufferlist bl = _get( key );
+        std::string value;
+        if( bl.length() > 0 )
+            bl.copy( 0, bl.length(), value );
+        return value;
+    }
+
+    void takeValues( const Strings& keys, const ValueFunc& func ) const final
+    {
+        size_t fetchedIndex = 0;
+        for( const auto& key: keys )
+        {
+            // pre-fetch requested values
+            while( _reads.size() >= _maxPendingOps &&
+                   fetchedIndex < keys.size( ))
+            {
+                _fetch( keys[ fetchedIndex++ ], 0 );
+            }
+
+            // get current key
+            librados::bufferlist bl = _get( key );
+            if( bl.length() == 0 )
+                continue;
+
+            char* copy = (char*)malloc( bl.length( ));
+            bl.copy( 0, bl.length(), copy );
+            func( key, copy, bl.length( ));
+        }
+    }
+
+    void getValues( const Strings& keys, const ConstValueFunc& func )
+        const final
+    {
+        size_t fetchedIndex = 0;
+        for( const auto& key: keys )
+        {
+            // pre-fetch requested values
+            while( _reads.size() >= _maxPendingOps &&
+                   fetchedIndex < keys.size( ))
+            {
+                _fetch( keys[ fetchedIndex++ ], 0 );
+            }
+
+            // get current key
+            const auto& value = (*this)[ key ];
+            func( key, value.data(), value.size( ));
+        }
+    }
+
+    bool flush() final { return _flush( 0 ); }
+
+private:
+    librados::Rados _cluster;
+    mutable librados::IoCtx _context;
+    size_t _maxPendingOps;
+
+    typedef std::unique_ptr< librados::AioCompletion > AioPtr;
+
+    struct AsyncRead
+    {
+        AsyncRead() {}
+        AioPtr op;
+        librados::bufferlist bl;
+    };
+
+    typedef stde::hash_map< std::string, AsyncRead > ReadMap;
+    typedef std::deque< librados::AioCompletion* > Writes;
+
+    mutable ReadMap _reads;
+    Writes _writes;
+
+    bool _fetch( const std::string& key, const size_t sizeHint ) const
     {
         if( _reads.size() >= _maxPendingOps )
             return true;
@@ -138,79 +211,6 @@ public:
         std::cerr <<  "Fetch failed: " << ::strerror( -read ) << std::endl;
         return false;
     }
-
-    std::string operator [] ( const std::string& key ) const final
-    {
-        const librados::bufferlist bl = _get( key );
-        std::string value;
-        if( bl.length() > 0 )
-            bl.copy( 0, bl.length(), value );
-        return value;
-    }
-
-    void takeValues( const Strings& keys, const ValueFunc& func ) const final
-    {
-        size_t fetchedIndex = 0;
-        for( const auto& key: keys )
-        {
-            // pre-fetch requested values
-            while( _reads.size() >= _maxPendingOps &&
-                   fetchedIndex < keys.size( ))
-            {
-                fetch( keys[ fetchedIndex++ ], 0 );
-            }
-
-            // get current key
-            librados::bufferlist bl = _get( key );
-            if( bl.length() == 0 )
-                continue;
-
-            char* copy = (char*)malloc( bl.length( ));
-            bl.copy( 0, bl.length(), copy );
-            func( key, copy, bl.length( ));
-        }
-    }
-
-    void getValues( const Strings& keys, const ConstValueFunc& func )
-        const final
-    {
-        size_t fetchedIndex = 0;
-        for( const auto& key: keys )
-        {
-            // pre-fetch requested values
-            while( _reads.size() >= _maxPendingOps &&
-                   fetchedIndex < keys.size( ))
-            {
-                fetch( keys[ fetchedIndex++ ], 0 );
-            }
-
-            // get current key
-            const auto& value = (*this)[ key ];
-            func( key, value.data(), value.size( ));
-        }
-    }
-
-    bool flush() final { return _flush( 0 ); }
-
-private:
-    librados::Rados _cluster;
-    mutable librados::IoCtx _context;
-    size_t _maxPendingOps;
-
-    typedef std::unique_ptr< librados::AioCompletion > AioPtr;
-
-    struct AsyncRead
-    {
-        AsyncRead() {}
-        AioPtr op;
-        librados::bufferlist bl;
-    };
-
-    typedef stde::hash_map< std::string, AsyncRead > ReadMap;
-    typedef std::deque< librados::AioCompletion* > Writes;
-
-    mutable ReadMap _reads;
-    Writes _writes;
 
     bool _flush( const size_t maxPending )
     {
