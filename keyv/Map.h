@@ -216,18 +216,6 @@ public:
     template< class V > std::set< V > getSet( const std::string& key ) const;
 
     /**
-     * Asynchronously retrieve a value which to be read later.
-     *
-     * Might be implemented as a 'NOP' by backend implementations.
-     *
-     * @param key the key to retrieve.
-     * @param sizeHint the size of the value, may be ignored by implementation.
-     * @return false on error, true otherwise.
-     * @version 1.11
-     */
-    KEYV_API bool fetch( const std::string& key, size_t sizeHint=0 ) const;
-
-    /**
      * Retrieve values from a list of keys and calls back for each found value.
      *
      * Depending on the backend implementation, this is more optimal than

@@ -2,6 +2,8 @@
 
 # git master
 
+* [12](https://github.com/BlueBrain/Keyv/pull/12):
+  Remove Map::fetch, superseeded by getValues and takeValues
 * [10](https://github.com/BlueBrain/Keyv/pull/10):
   Tune memcached performance
 * [9](https://github.com/BlueBrain/Keyv/pull/9):
