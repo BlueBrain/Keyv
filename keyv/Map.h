@@ -38,22 +38,8 @@
 
 namespace keyv
 {
-namespace detail { class Plugin; }
 /**
- * Callback for Map::takeValues(), providing the key, pointer and size
- * of the value.
- */
-using ValueFunc = std::function< void( const std::string&, char*, size_t ) >;
-
-/**
- * Callback for Map::getValues(), providing the key, pointer and size
- * of the value.
- */
-using ConstValueFunc = std::function< void( const std::string&, const char*,
-                                            size_t ) >;
-
-/**
- * Unified interface to save key-value pairs in a  store.
+ * Unified interface to save key-value pairs in a store.
  *
  * Example: @include tests/Map.cpp
  */
@@ -95,6 +81,9 @@ public:
      * @version 1.9.2
      */
     KEYV_API static bool handles( const servus::URI& uri );
+
+    /** @return the descriptions of all available backends. @version 1.1 */
+    KEYV_API static std::string getDescriptions();
 
     /**
      * Create a map which can be used for caching IO on the local system.
@@ -256,7 +245,9 @@ private:
     Map( const Map& ) = delete;
     Map& operator = ( const Map& ) = delete;
 
-    std::unique_ptr< detail::Plugin > _impl;
+    struct Impl;
+    std::unique_ptr< Impl > _impl;
+    std::unique_ptr< Plugin > _plugin;
 
     KEYV_API bool _swap() const;
 

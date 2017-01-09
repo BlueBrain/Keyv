@@ -1,5 +1,5 @@
 
-/* Copyright (c) 2016, Stefan.Eilemann@epfl.ch
+/* Copyright (c) 2016-2017, Stefan.Eilemann@epfl.ch
  *
  * This file is part of Keyv <https://github.com/BlueBrain/Keyv>
  *
@@ -17,33 +17,33 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifdef KEYV_USE_RADOS
-#include <keyv/log.h>
-#include <keyv/stdExt.h>
+#include <keyv/Plugin.h>
 
+#include <lunchbox/pluginRegisterer.h>
 #include <rados/librados.hpp>
 
 namespace keyv
 {
-namespace ceph
-{
+class Ceph
+
 namespace
 {
+lunchbox::PluginRegisterer< Ceph > registerer;
+
 static void _throw( const std::string& reason, const int error )
 {
     throw std::runtime_error( reason + ": " + ::strerror( -error ));
 }
 }
 
-class Plugin : public detail::Plugin
+class Ceph : public Plugin
 {
 public:
-    Plugin( const servus::URI& uri )
+    Ceph( const servus::URI& uri )
         : _maxPendingOps( 0 )
     {
         const int init = _cluster.init2( uri.getUserinfo().c_str(),
-                                         "ceph",
-                                         0 /*flags*/ );
+                                         "ceph", 0 /*flags*/ );
         if( init < 0 )
             _throw( "Cannot initialize rados cluster", init );
 
@@ -62,7 +62,7 @@ public:
 
     }
 
-    virtual ~Plugin()
+    virtual ~Ceph()
     {
         _context.close();
         _cluster.shutdown();
@@ -70,6 +70,9 @@ public:
 
     static bool handles( const servus::URI& uri )
         { return uri.getScheme() == "ceph"; }
+
+    static std::string getDescription()
+        { return "ceph://user@host/path_to_ceph_config"; }
 
     size_t setQueueDepth( const size_t depth ) final
     {
@@ -290,6 +293,3 @@ private:
 
 };
 }
-}
-
-#endif

@@ -1,5 +1,5 @@
 
-/* Copyright (c) 2016, Stefan.Eilemann@epfl.ch
+/* Copyright (c) 2016-2017, Stefan.Eilemann@epfl.ch
  *
  * This file is part of Keyv <https://github.com/BlueBrain/Keyv>
  *
@@ -17,12 +17,13 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifdef KEYV_USE_LIBMEMCACHED
+#include <keyv/Plugin.h>
 #include <libmemcached/memcached.h>
 #include <lunchbox/uint128_t.h>
 #include <pression/data/CompressorSnappy.h>
 #include <pression/data/CompressorZSTD.h>
 #include <pression/data/Registry.h>
+#include <lunchbox/pluginRegisterer.h>
 #include <unordered_map>
 #include <utility>
 
@@ -30,10 +31,11 @@
 
 namespace keyv
 {
-namespace memcached
-{
+class Memcached;
 namespace
 {
+lunchbox::PluginRegisterer< Memcached > registerer;
+
 memcached_st* _getInstance( const servus::URI& uri )
 {
     const std::string& host = uri.getHost();
@@ -100,10 +102,10 @@ lunchbox::uint128_t _generateNamespace( const servus::URI& uri )
 }
 }
 
-class Plugin : public detail::Plugin
+class Memcached : public Plugin
 {
 public:
-    explicit Plugin( const servus::URI& uri )
+    explicit Memcached( const servus::URI& uri )
         : _instance( _getInstance( uri ))
         , _namespace( _generateNamespace( uri ))
         , _lastError( MEMCACHED_SUCCESS )
@@ -113,10 +115,13 @@ public:
                                       std::to_string( uri ) + " failed" );
     }
 
-    virtual ~Plugin() { memcached_free( _instance ); }
+    virtual ~Memcached() { memcached_free( _instance ); }
 
     static bool handles( const servus::URI& uri )
-        { return uri.getScheme() == "memcached"; }
+        { return uri.getScheme() == "memcached://"; }
+
+    static std::string getDescription()
+        { return "memcached://[host][:port][/namespace]"; }
 
     bool insert( const std::string& key, const void* data, const size_t size )
         final
@@ -329,5 +334,3 @@ private:
 };
 
 }
-}
-#endif

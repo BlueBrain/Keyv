@@ -1,5 +1,5 @@
 
-/* Copyright (c) 2016, Stefan Eilemann <eile@equalizergraphics.com>
+/* Copyright (c) 2016-2017, Stefan Eilemann <eile@equalizergraphics.com>
  *
  * This file is part of Keyv <https://github.com/BlueBrain/Keyv>
  *
@@ -43,6 +43,20 @@ namespace keyv
 using lunchbox::Strings;
 
 class Map;
+class Plugin;
+
+/**
+ * Callback for Map::takeValues(), providing the key, pointer and size
+ * of the value.
+ */
+using ValueFunc = std::function< void( const std::string&, char*, size_t ) >;
+
+/**
+ * Callback for Map::getValues(), providing the key, pointer and size
+ * of the value.
+ */
+using ConstValueFunc = std::function< void( const std::string&, const char*,
+                                            size_t ) >;
 
 typedef std::shared_ptr< Map > MapPtr;
 }
