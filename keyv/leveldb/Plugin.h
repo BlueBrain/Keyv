@@ -36,8 +36,9 @@ db::DB* _open( const servus::URI& uri )
     db::DB* db = 0;
     db::Options options;
     options.create_if_missing = true;
-    const std::string& path = uri.getPath().empty() ?
-                              "keyvMap.leveldb" : uri.getPath();
+    const auto store = uri.findQuery( "store" );
+    const std::string& path = store == uri.queryEnd() ? "keyvMap.leveldb" :
+                                                        store->second;
     const db::Status status = db::DB::Open( options, path, &db );
     if( !status.ok( ))
         LBTHROW( std::runtime_error( status.ToString( )));
@@ -48,7 +49,10 @@ db::DB* _open( const servus::URI& uri )
 class Plugin : public detail::Plugin
 {
 public:
-    explicit Plugin( const servus::URI& uri ) : _db( _open( uri )) {}
+    explicit Plugin( const servus::URI& uri )
+        : _db( _open( uri ))
+        , _path( uri.getPath() + "/" )
+    {}
 
     virtual ~Plugin() { delete _db; }
 
@@ -59,13 +63,13 @@ public:
         final
     {
         const db::Slice value( (const char*)data, size );
-        return _db->Put( db::WriteOptions(), key, value ).ok();
+        return _db->Put( db::WriteOptions(), _path + key, value ).ok();
     }
 
     std::string operator [] ( const std::string& key ) const final
     {
         std::string value;
-        if( _db->Get( db::ReadOptions(), key, &value ).ok( ))
+        if( _db->Get( db::ReadOptions(), _path + key, &value ).ok( ))
             return value;
         return std::string();
     }
@@ -75,7 +79,7 @@ public:
         for( const auto& key: keys )
         {
             std::string value;
-            if( !_db->Get( db::ReadOptions(), key, &value ).ok( ))
+            if( !_db->Get( db::ReadOptions(), _path + key, &value ).ok( ))
                 continue;
 
             char* copy = (char*)malloc( value.size( ));
@@ -90,7 +94,7 @@ public:
         for( const auto& key: keys )
         {
             std::string value;
-            if( !_db->Get( db::ReadOptions(), key, &value ).ok( ))
+            if( !_db->Get( db::ReadOptions(), _path + key, &value ).ok( ))
                 continue;
 
             func( key, value.data(), value.size( ));
@@ -101,6 +105,7 @@ public:
 
 private:
     db::DB* const _db;
+    const std::string _path;
 };
 }
 }
