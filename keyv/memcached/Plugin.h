@@ -19,6 +19,7 @@
 
 #ifdef KEYV_USE_LIBMEMCACHED
 #include <libmemcached/memcached.h>
+#include <lunchbox/uint128_t.h>
 #include <pression/data/CompressorSnappy.h>
 #include <pression/data/CompressorZSTD.h>
 #include <pression/data/Registry.h>
@@ -88,18 +89,23 @@ memcached_st* _getInstance( const servus::URI& uri )
                             LB_1MB * nServers );
     return instance;
 }
-}
 
-// memcached has relative strict requirements on keys (no whitespace or control
-// characters, max length). We therefore hash incoming keys and use their string
-// representation. If we compress data, the compressor name is appended to the
-// key to avoid name clashes.
+lunchbox::uint128_t _generateNamespace( const servus::URI& uri )
+{
+    const auto& path = uri.getPath();
+    if( path.empty( ))
+        return lunchbox::uint128_t();
+    // OPT: hash path to limit string size used as key
+    return lunchbox::make_uint128( path );
+}
+}
 
 class Plugin : public detail::Plugin
 {
 public:
     explicit Plugin( const servus::URI& uri )
         : _instance( _getInstance( uri ))
+        , _namespace( _generateNamespace( uri ))
         , _lastError( MEMCACHED_SUCCESS )
     {
         if( !_instance )
@@ -297,16 +303,25 @@ private:
         _compressor.decompress( inputs, decompressed, fullSize );
     }
 
+    // memcached has relative strict requirements on keys (no whitespace or
+    // control characters, max length). We therefore hash incoming keys and use
+    // their string representation. If we compress data, the compressor name is
+    // appended to the key to avoid name clashes.
     std::string _hash( const std::string& key ) const
     {
-        return servus::make_uint128( key + _compressor.getName( )).getString();
+        return lunchbox::uint128_t( _namespace +
+            servus::make_uint128( key + _compressor.getName( )).getString();
     }
 #else
     std::string _hash( const std::string& key ) const
-        { return servus::make_uint128( key ).getString(); }
+    {
+        return lunchbox::uint128_t( _namespace +
+                                    servus::make_uint128( key )).getString();
+    }
 #endif
 
     memcached_st* const _instance;
+    const lunchbox::uint128_t _namespace;
     memcached_return_t _lastError;
 #ifdef KEYV_MEMCACHED_COMPRESSION
     mutable pression::data::CompressorSnappy _compressor;

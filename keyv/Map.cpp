@@ -119,8 +119,9 @@ MapPtr Map::createCache()
 #ifdef KEYV_USE_LEVELDB
     const char* leveldb = ::getenv( "LEVELDB_CACHE" );
     if( leveldb )
-        return MapPtr( new Map( servus::URI( std::string( "leveldb://" ) +
-                                             leveldb )));
+        return MapPtr( new Map( servus::URI(
+                                    std::string( "leveldb:///cache/?store=" ) +
+                                                 leveldb )));
 #endif
 
     return MapPtr();

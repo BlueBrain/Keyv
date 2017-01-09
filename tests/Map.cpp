@@ -180,7 +180,8 @@ void setup( const std::string& uriStr )
     map.takeValues( keys, [&]( const std::string& key, char* data,
                                const size_t size )
     {
-        TESTINFO( std::find( keys.begin(), keys.end(), key) != keys.end(), key);
+        TESTINFO( std::find( keys.begin(), keys.end(), key ) != keys.end(),
+                  key );
         TEST( data );
         TESTINFO( size > 0, key << " in " << uriStr );
         ++numResults;
@@ -294,7 +295,7 @@ void testLevelDBFailures()
 #ifdef KEYV_USE_LEVELDB
     try
     {
-        setup( "leveldb:///doesnotexist/deadbeef/coffee" );
+        setup( "leveldb://?store=/doesnotexist/deadbeef/coffee" );
     }
     catch( const std::runtime_error& )
     {
@@ -334,7 +335,7 @@ int main( const int argc, char* argv[] )
 #ifdef KEYV_USE_LEVELDB
     tests.push_back( TestSpec( "", 0, 65536 ));
     tests.push_back( TestSpec( "leveldb://", 0, 65536 ));
-    tests.push_back( TestSpec( "leveldb://keyvMap2.leveldb", 0, 65536 ));
+    tests.push_back( TestSpec( "leveldb://?store=keyvMap2.leveldb", 0, 65536 ));
 #endif
 #ifdef KEYV_USE_LIBMEMCACHED
     if( testAvailable( "memcached://" ))

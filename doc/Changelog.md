@@ -2,6 +2,11 @@
 
 # git master
 
+* [13](https://github.com/BlueBrain/Keyv/pull/13):
+  Change leveldb URI to
+  ```leveldb://[/namespace][?store=path_to_leveldb_dir]```
+  and memcached URI to
+  ```memcached://[host][:port][/namespace]```
 * [12](https://github.com/BlueBrain/Keyv/pull/12):
   Remove Map::fetch, superseeded by getValues and takeValues
 * [10](https://github.com/BlueBrain/Keyv/pull/10):
