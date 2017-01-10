@@ -24,13 +24,13 @@
 
 namespace keyv
 {
-class Ceph
+class Ceph;
 
 namespace
 {
 lunchbox::PluginRegisterer< Ceph > registerer;
 
-static void _throw( const std::string& reason, const int error )
+void _throw( const std::string& reason, const int error )
 {
     throw std::runtime_error( reason + ": " + ::strerror( -error ));
 }

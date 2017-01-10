@@ -118,7 +118,7 @@ public:
     virtual ~Memcached() { memcached_free( _instance ); }
 
     static bool handles( const servus::URI& uri )
-        { return uri.getScheme() == "memcached://"; }
+        { return uri.getScheme() == "memcached"; }
 
     static std::string getDescription()
         { return "memcached://[host][:port][/namespace]"; }

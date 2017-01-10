@@ -36,8 +36,12 @@ using PluginFactory = lunchbox::PluginFactory< Plugin >;
 class Map::Impl
 {
 public:
-    Impl() : swap( false ) {}
+    Impl( const servus::URI& uri )
+        : plugin( PluginFactory::getInstance().create( uri ))
+        , swap( false )
+    {}
 
+    std::unique_ptr< Plugin > plugin;
     bool swap;
 #ifdef HISTOGRAM
     std::map< size_t, size_t > keys;
@@ -46,22 +50,17 @@ public:
 };
 
 Map::Map( const servus::URI& uri )
-    : _impl( new Impl )
-    , _plugin( PluginFactory::getInstance().create( uri ))
+    : _impl( new Impl( uri ))
 {}
 
 Map::Map( Map&& from )
-  : _impl( std::move( from._impl ))
-  , _plugin( std::move( from._plugin ))
+    : _impl( std::move( from._impl ))
 {}
 
 Map& Map::operator = ( Map&& from )
 {
     if( this != &from )
-    {
         _impl = std::move( from._impl );
-        _plugin = std::move( from._plugin );
-    }
     return *this;
 }
 
@@ -79,18 +78,15 @@ Map::~Map()
 
 MapPtr Map::createCache()
 {
-#ifdef KEYV_USE_LIBMEMCACHED
-    if( ::getenv( "MEMCACHED_SERVERS" ))
-        return MapPtr( new Map( servus::URI( "memcached://" )));
-#endif
-#ifdef KEYV_USE_LEVELDB
+    const servus::URI memcachedURI( "memcached://" );
+    if( ::getenv( "MEMCACHED_SERVERS" ) && handles( memcachedURI ))
+        return MapPtr( new Map( servus::URI( memcachedURI )));
+
     const char* leveldb = ::getenv( "LEVELDB_CACHE" );
-    if( leveldb )
+    if( leveldb && handles( servus::URI( "leveldb://" )))
         return MapPtr( new Map( servus::URI(
                                     std::string( "leveldb:///cache/?store=" ) +
                                                  leveldb )));
-#endif
-
     return MapPtr();
 }
 
@@ -107,7 +103,7 @@ std::string Map::getDescriptions()
 
 size_t Map::setQueueDepth( const size_t depth )
 {
-    return _plugin->setQueueDepth( depth );
+    return _impl->plugin->setQueueDepth( depth );
 }
 
 bool Map::insert( const std::string& key, const void* data,
@@ -117,27 +113,27 @@ bool Map::insert( const std::string& key, const void* data,
     ++_impl->keys[ key.size() ];
     ++_impl->values[ size ];
 #endif
-    return _plugin->insert( key, data, size );
+    return _impl->plugin->insert( key, data, size );
 }
 
 std::string Map::operator [] ( const std::string& key ) const
 {
-    return (*_plugin)[ key ];
+    return (*_impl->plugin)[ key ];
 }
 
 void Map::getValues( const Strings& keys, const ConstValueFunc& func ) const
 {
-    _plugin->getValues( keys, func );
+    _impl->plugin->getValues( keys, func );
 }
 
 void Map::takeValues( const Strings& keys, const ValueFunc& func ) const
 {
-    _plugin->takeValues( keys, func );
+    _impl->plugin->takeValues( keys, func );
 }
 
 bool Map::flush()
 {
-    return _plugin->flush();
+    return _impl->plugin->flush();
 }
 
 void Map::setByteswap( const bool swap )

@@ -20,7 +20,9 @@
 #pragma once
 
 #include <keyv/types.h>
+
 #include <servus/uri.h>
+
 #include <lunchbox/compiler.h>
 
 namespace keyv
@@ -38,35 +40,31 @@ public:
     /** @internal Needed by the PluginRegisterer. */
     typedef servus::URI InitDataT;
 
-    /**
-     * Set the maximum number of non-commited writes.
-     *
-     * @param size the maximum write queue size
-     * @return the effectice size used by the implementation
-     */
+    /** @copydoc Map::setQueueDepth */
     virtual size_t setQueueDepth( size_t size LB_UNUSED ) { return 0; }
 
-    /** Insert a key-value pair. */
+    /** @copydoc Map::insert */
     virtual bool insert( const std::string& key, const void* data,
                          size_t size ) = 0;
 
-    /** Commit all pending insert operations */
+    /** @copydoc Map::flush */
     virtual bool flush() = 0;
 
-    /** @return a value for a key, or an empty string. */
-    virtual std::string operator [] ( const std::string& key ) const = 0;
+    /** @copydoc Map::operator[] */
+    virtual std::string operator[]( const std::string& key ) const = 0;
 
-    /** Get the given values and call a function on each key. */
+    /** @copydoc Map::getValues */
     virtual void getValues( const Strings& keys,
                             const ConstValueFunc& func ) const = 0;
 
-    /** Get the given values and call a function on each key. */
+    /** @copydoc Map::takeValues */
     virtual void takeValues( const Strings& keys,
                              const ValueFunc& func ) const = 0;
+
 private:
     Plugin( const Plugin& ) = delete;
     Plugin( Plugin&& ) = delete;
-    Plugin& operator = ( const Plugin& ) = delete;
-    Plugin& operator = ( Plugin&& ) = delete;
+    Plugin& operator=( const Plugin& ) = delete;
+    Plugin& operator=( Plugin&& ) = delete;
 };
 }

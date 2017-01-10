@@ -37,6 +37,7 @@
 #include <keyv/defines.h>
 #include <lunchbox/types.h>
 #include <memory>
+#include <functional>
 
 namespace keyv
 {

@@ -245,9 +245,8 @@ private:
     Map( const Map& ) = delete;
     Map& operator = ( const Map& ) = delete;
 
-    struct Impl;
+    class Impl;
     std::unique_ptr< Impl > _impl;
-    std::unique_ptr< Plugin > _plugin;
 
     KEYV_API bool _swap() const;
 
