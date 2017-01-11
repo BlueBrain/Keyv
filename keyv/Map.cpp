@@ -1,5 +1,5 @@
 
-/* Copyright (c) 2014-2016, Stefan.Eilemann@epfl.ch
+/* Copyright (c) 2014-2017, Stefan.Eilemann@epfl.ch
  *
  * This file is part of Keyv <https://github.com/BlueBrain/Keyv>
  *
@@ -18,76 +18,43 @@
  */
 
 #include "Map.h"
+#include "Plugin.h"
+
+#include <lunchbox/plugin.h>
+#include <lunchbox/pluginFactory.h>
 #include <servus/uri.h>
 
 // #define HISTOGRAM
 
 namespace keyv
 {
-namespace detail
+namespace
 {
-class Plugin
+using PluginFactory = lunchbox::PluginFactory< Plugin >;
+}
+
+class Map::Impl
 {
 public:
-    Plugin() : swap( false ) {}
-    virtual ~Plugin() {}
-    virtual size_t setQueueDepth( const size_t ) { return 0; }
-    virtual bool insert( const std::string& key, const void* data,
-                         const size_t size ) = 0;
-    virtual std::string operator [] ( const std::string& key ) const = 0;
-    virtual void getValues( const Strings& keys,
-                            const ConstValueFunc& func ) const = 0;
-    virtual void takeValues( const Strings& keys,
-                             const ValueFunc& func ) const = 0;
-    virtual bool flush() = 0;
+    Impl( const servus::URI& uri )
+        : plugin( PluginFactory::getInstance().create( uri ))
+        , swap( false )
+    {}
 
+    std::unique_ptr< Plugin > plugin;
     bool swap;
 #ifdef HISTOGRAM
     std::map< size_t, size_t > keys;
     std::map< size_t, size_t > values;
 #endif
 };
-}
-}
 
-// Impls - need detail::Plugin interface above
-#include "ceph/Plugin.h"
-#include "leveldb/Plugin.h"
-#include "memcached/Plugin.h"
-
-namespace
-{
-typedef std::unique_ptr< keyv::detail::Plugin > PluginPtr;
-PluginPtr _newImpl( const servus::URI& uri )
-{
-    // Update handles() below on any change here!
-#ifdef KEYV_USE_RADOS
-    if( keyv::ceph::Plugin::handles( uri ))
-        return PluginPtr( new keyv::ceph::Plugin( uri ));
-#endif
-#ifdef KEYV_USE_LEVELDB
-    if( keyv::leveldb::Plugin::handles( uri ))
-        return PluginPtr( new keyv::leveldb::Plugin( uri ));
-#endif
-#ifdef KEYV_USE_LIBMEMCACHED
-    if( keyv::memcached::Plugin::handles( uri ))
-        return PluginPtr( new keyv::memcached::Plugin( uri ));
-#endif
-
-    LBTHROW( std::runtime_error(
-                 std::string( "No suitable implementation found for: " ) +
-                              std::to_string( uri )));
-}
-}
-
-namespace keyv
-{
 Map::Map( const servus::URI& uri )
-    : _impl( _newImpl( uri ))
+    : _impl( new Impl( uri ))
 {}
 
 Map::Map( Map&& from )
-  : _impl( std::move( from._impl ))
+    : _impl( std::move( from._impl ))
 {}
 
 Map& Map::operator = ( Map&& from )
@@ -96,7 +63,6 @@ Map& Map::operator = ( Map&& from )
         _impl = std::move( from._impl );
     return *this;
 }
-
 
 Map::~Map()
 {
@@ -112,41 +78,32 @@ Map::~Map()
 
 MapPtr Map::createCache()
 {
-#ifdef KEYV_USE_LIBMEMCACHED
-    if( ::getenv( "MEMCACHED_SERVERS" ))
-        return MapPtr( new Map( servus::URI( "memcached://" )));
-#endif
-#ifdef KEYV_USE_LEVELDB
+    const servus::URI memcachedURI( "memcached://" );
+    if( ::getenv( "MEMCACHED_SERVERS" ) && handles( memcachedURI ))
+        return MapPtr( new Map( servus::URI( memcachedURI )));
+
     const char* leveldb = ::getenv( "LEVELDB_CACHE" );
-    if( leveldb )
+    if( leveldb && handles( servus::URI( "leveldb://" )))
         return MapPtr( new Map( servus::URI(
                                     std::string( "leveldb:///cache/?store=" ) +
                                                  leveldb )));
-#endif
-
     return MapPtr();
 }
 
-bool Map::handles( const servus::URI& uri LB_UNUSED )
+bool Map::handles( const servus::URI& uri )
 {
-#ifdef KEYV_USE_LEVELDB
-    if( keyv::leveldb::Plugin::handles( uri ))
-        return true;
-#endif
-#ifdef KEYV_USE_RADOS
-    if( keyv::ceph::Plugin::handles( uri ))
-        return true;
-#endif
-#ifdef KEYV_USE_LIBMEMCACHED
-    if( keyv::memcached::Plugin::handles( uri ))
-        return true;
-#endif
-    return false;
+    return PluginFactory::getInstance().handles( uri );
 }
+
+std::string Map::getDescriptions()
+{
+    return PluginFactory::getInstance().getDescriptions();
+}
+
 
 size_t Map::setQueueDepth( const size_t depth )
 {
-    return _impl->setQueueDepth( depth );
+    return _impl->plugin->setQueueDepth( depth );
 }
 
 bool Map::insert( const std::string& key, const void* data,
@@ -156,27 +113,27 @@ bool Map::insert( const std::string& key, const void* data,
     ++_impl->keys[ key.size() ];
     ++_impl->values[ size ];
 #endif
-    return _impl->insert( key, data, size );
+    return _impl->plugin->insert( key, data, size );
 }
 
 std::string Map::operator [] ( const std::string& key ) const
 {
-    return (*_impl)[ key ];
+    return (*_impl->plugin)[ key ];
 }
 
 void Map::getValues( const Strings& keys, const ConstValueFunc& func ) const
 {
-    _impl->getValues( keys, func );
+    _impl->plugin->getValues( keys, func );
 }
 
 void Map::takeValues( const Strings& keys, const ValueFunc& func ) const
 {
-    _impl->takeValues( keys, func );
+    _impl->plugin->takeValues( keys, func );
 }
 
 bool Map::flush()
 {
-    return _impl->flush();
+    return _impl->plugin->flush();
 }
 
 void Map::setByteswap( const bool swap )

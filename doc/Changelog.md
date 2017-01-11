@@ -2,6 +2,8 @@
 
 # git master
 
+* [14](https://github.com/BlueBrain/Keyv/pull/14):
+  Add link-time plugin support by using lunchbox plugins
 * [13](https://github.com/BlueBrain/Keyv/pull/13):
   Change leveldb URI to
   ```leveldb://[/namespace][?store=path_to_leveldb_dir]```

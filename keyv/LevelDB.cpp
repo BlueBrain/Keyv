@@ -1,5 +1,5 @@
 
-/* Copyright (c) 2014-2016, Stefan.Eilemann@epfl.ch
+/* Copyright (c) 2014-2017, Stefan.Eilemann@epfl.ch
  *
  * This file is part of Keyv <https://github.com/BlueBrain/Keyv>
  *
@@ -17,20 +17,23 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifdef KEYV_USE_LEVELDB
+#include <keyv/Plugin.h>
+
 #include <lunchbox/compiler.h>
 #include <lunchbox/log.h>
+#include <lunchbox/pluginRegisterer.h>
 
 #include <leveldb/db.h>
 
 namespace keyv
 {
 namespace db = ::leveldb;
+class LevelDB;
 
-namespace leveldb
-{
 namespace
 {
+lunchbox::PluginRegisterer< LevelDB > registerer;
+
 db::DB* _open( const servus::URI& uri )
 {
     db::DB* db = 0;
@@ -46,18 +49,21 @@ db::DB* _open( const servus::URI& uri )
 }
 }
 
-class Plugin : public detail::Plugin
+class LevelDB : public Plugin
 {
 public:
-    explicit Plugin( const servus::URI& uri )
+    explicit LevelDB( const servus::URI& uri )
         : _db( _open( uri ))
         , _path( uri.getPath() + "/" )
     {}
 
-    virtual ~Plugin() { delete _db; }
+    virtual ~LevelDB() { delete _db; }
 
     static bool handles( const servus::URI& uri )
         { return uri.getScheme() == "leveldb" || uri.getScheme().empty(); }
+
+    static std::string getDescription()
+        { return "leveldb://[/namespace][?store=path_to_leveldb_dir]"; }
 
     bool insert( const std::string& key, const void* data, const size_t size )
         final
@@ -108,6 +114,3 @@ private:
     const std::string _path;
 };
 }
-}
-
-#endif
