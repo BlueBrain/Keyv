@@ -2,6 +2,8 @@
 
 # git master
 
+* [15](https://github.com/BlueBrain/Keyv/pull/15):
+  Add keyv::Map::erase()
 * [14](https://github.com/BlueBrain/Keyv/pull/14):
   Add link-time plugin support by using lunchbox plugins
 * [13](https://github.com/BlueBrain/Keyv/pull/13):

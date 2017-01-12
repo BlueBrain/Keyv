@@ -227,6 +227,12 @@ public:
         return memcached_flush_buffers( _instance ) == MEMCACHED_SUCCESS;
     }
 
+    void erase( const std::string& key ) final
+    {
+        const std::string& hash = _hash( key );
+        memcached_delete( _instance, hash.c_str(), hash.length(), 0 );
+    }
+
 private:
     template< typename F, typename T >
     void _multiGet( const Strings& keys, const F& func, const T& getFunc ) const

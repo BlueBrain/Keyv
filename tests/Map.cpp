@@ -199,6 +199,12 @@ void setup( const std::string& uriStr )
         ++numResults;
     });
     TEST( numResults == keys.size( ));
+
+    const std::string random = servus::make_UUID().getString();
+    TEST( map.insert( random, "foobar" ));
+    TESTINFO( map[ random ] == "foobar", map[ random ]);
+    map.erase( random );
+    TEST( map[ random ].empty( ));
 }
 
 void benchmark( const std::string& uriStr, const uint64_t queueDepth,

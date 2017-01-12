@@ -47,6 +47,9 @@ public:
     virtual bool insert( const std::string& key, const void* data,
                          size_t size ) = 0;
 
+    /** @copydoc Map::erase */
+    virtual void erase( const std::string& key ) = 0;
+
     /** @copydoc Map::flush */
     virtual bool flush() = 0;
 

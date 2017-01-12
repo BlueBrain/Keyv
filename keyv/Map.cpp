@@ -136,6 +136,11 @@ bool Map::flush()
     return _impl->plugin->flush();
 }
 
+void Map::erase( const std::string& key )
+{
+    _impl->plugin->erase( key );
+}
+
 void Map::setByteswap( const bool swap )
 {
     _impl->swap = swap;

@@ -235,10 +235,13 @@ public:
      */
     KEYV_API void takeValues( const Strings& keys, const ValueFunc& func )const;
 
-    /** Flush outstanding operations to the backend storage. @version 1.11 */
+    /** Erase the given key from the store. @version 1.1 */
+    KEYV_API void erase( const std::string& key );
+
+    /** Flush outstanding operations to the backend storage. @version 1.0 */
     KEYV_API bool flush();
 
-    /** Enable or disable endianness conversion on reads. @version 1.11 */
+    /** Enable or disable endianness conversion on reads. @version 1.0 */
     KEYV_API void setByteswap( const bool swap );
 
 private:
