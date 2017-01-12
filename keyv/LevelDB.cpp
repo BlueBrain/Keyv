@@ -109,6 +109,11 @@ public:
 
     bool flush() final { /*NOP?*/ return true; }
 
+    void erase( const std::string& key ) final
+    {
+        _db->Delete( db::WriteOptions(), _path + key );
+    }
+
 private:
     db::DB* const _db;
     const std::string _path;
