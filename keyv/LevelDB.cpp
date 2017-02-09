@@ -32,19 +32,19 @@ class LevelDB;
 
 namespace
 {
-lunchbox::PluginRegisterer< LevelDB > registerer;
+lunchbox::PluginRegisterer<LevelDB> registerer;
 
-db::DB* _open( const servus::URI& uri )
+db::DB* _open(const servus::URI& uri)
 {
     db::DB* db = 0;
     db::Options options;
     options.create_if_missing = true;
-    const auto store = uri.findQuery( "store" );
-    const std::string& path = store == uri.queryEnd() ? "keyvMap.leveldb" :
-                                                        store->second;
-    const db::Status status = db::DB::Open( options, path, &db );
-    if( !status.ok( ))
-        LBTHROW( std::runtime_error( status.ToString( )));
+    const auto store = uri.findQuery("store");
+    const std::string& path =
+        store == uri.queryEnd() ? "keyvMap.leveldb" : store->second;
+    const db::Status status = db::DB::Open(options, path, &db);
+    if (!status.ok())
+        LBTHROW(std::runtime_error(status.ToString() + " opening " + path));
     return db;
 }
 }
@@ -52,66 +52,69 @@ db::DB* _open( const servus::URI& uri )
 class LevelDB : public Plugin
 {
 public:
-    explicit LevelDB( const servus::URI& uri )
-        : _db( _open( uri ))
-        , _path( uri.getPath() + "/" )
-    {}
-
-    virtual ~LevelDB() { delete _db; }
-
-    static bool handles( const servus::URI& uri )
-        { return uri.getScheme() == "leveldb" || uri.getScheme().empty(); }
-
-    static std::string getDescription()
-        { return "leveldb://[/namespace][?store=path_to_leveldb_dir]"; }
-
-    bool insert( const std::string& key, const void* data, const size_t size )
-        final
+    explicit LevelDB(const servus::URI& uri)
+        : _db(_open(uri))
+        , _path(uri.getPath() + "/")
     {
-        const db::Slice value( (const char*)data, size );
-        return _db->Put( db::WriteOptions(), _path + key, value ).ok();
     }
 
-    std::string operator [] ( const std::string& key ) const final
+    virtual ~LevelDB() { delete _db; }
+    static bool handles(const servus::URI& uri)
+    {
+        return uri.getScheme() == "leveldb" || uri.getScheme().empty();
+    }
+
+    static std::string getDescription()
+    {
+        return "leveldb://[/namespace][?store=path_to_leveldb_dir]";
+    }
+
+    bool insert(const std::string& key, const void* data,
+                const size_t size) final
+    {
+        const db::Slice value((const char*)data, size);
+        return _db->Put(db::WriteOptions(), _path + key, value).ok();
+    }
+
+    std::string operator[](const std::string& key) const final
     {
         std::string value;
-        if( _db->Get( db::ReadOptions(), _path + key, &value ).ok( ))
+        if (_db->Get(db::ReadOptions(), _path + key, &value).ok())
             return value;
         return std::string();
     }
 
-    void takeValues( const Strings& keys, const ValueFunc& func ) const final
+    void takeValues(const Strings& keys, const ValueFunc& func) const final
     {
-        for( const auto& key: keys )
+        for (const auto& key : keys)
         {
             std::string value;
-            if( !_db->Get( db::ReadOptions(), _path + key, &value ).ok( ))
+            if (!_db->Get(db::ReadOptions(), _path + key, &value).ok())
                 continue;
 
-            char* copy = (char*)malloc( value.size( ));
-            memcpy( copy, value.data(), value.size( ));
-            func( key, copy, value.size( ));
+            char* copy = (char*)malloc(value.size());
+            memcpy(copy, value.data(), value.size());
+            func(key, copy, value.size());
         }
     }
 
-    void getValues( const Strings& keys, const ConstValueFunc& func ) const
-        final
+    void getValues(const Strings& keys, const ConstValueFunc& func) const final
     {
-        for( const auto& key: keys )
+        for (const auto& key : keys)
         {
             std::string value;
-            if( !_db->Get( db::ReadOptions(), _path + key, &value ).ok( ))
+            if (!_db->Get(db::ReadOptions(), _path + key, &value).ok())
                 continue;
 
-            func( key, value.data(), value.size( ));
+            func(key, value.data(), value.size());
         }
     }
 
     bool flush() final { /*NOP?*/ return true; }
 
-    void erase( const std::string& key ) final
+    void erase(const std::string& key) final
     {
-        _db->Delete( db::WriteOptions(), _path + key );
+        _db->Delete(db::WriteOptions(), _path + key);
     }
 
 private:

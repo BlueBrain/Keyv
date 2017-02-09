@@ -33,7 +33,6 @@ class Plugin
 public:
     Plugin() {}
     virtual ~Plugin() {}
-
     /** @internal Needed by the PluginRegisterer. */
     typedef Plugin InterfaceT;
 
@@ -41,33 +40,32 @@ public:
     typedef servus::URI InitDataT;
 
     /** @copydoc Map::setQueueDepth */
-    virtual size_t setQueueDepth( size_t size LB_UNUSED ) { return 0; }
-
+    virtual size_t setQueueDepth(size_t size LB_UNUSED) { return 0; }
     /** @copydoc Map::insert */
-    virtual bool insert( const std::string& key, const void* data,
-                         size_t size ) = 0;
+    virtual bool insert(const std::string& key, const void* data,
+                        size_t size) = 0;
 
     /** @copydoc Map::erase */
-    virtual void erase( const std::string& key ) = 0;
+    virtual void erase(const std::string& key) = 0;
 
     /** @copydoc Map::flush */
     virtual bool flush() = 0;
 
     /** @copydoc Map::operator[] */
-    virtual std::string operator[]( const std::string& key ) const = 0;
+    virtual std::string operator[](const std::string& key) const = 0;
 
     /** @copydoc Map::getValues */
-    virtual void getValues( const Strings& keys,
-                            const ConstValueFunc& func ) const = 0;
+    virtual void getValues(const Strings& keys,
+                           const ConstValueFunc& func) const = 0;
 
     /** @copydoc Map::takeValues */
-    virtual void takeValues( const Strings& keys,
-                             const ValueFunc& func ) const = 0;
+    virtual void takeValues(const Strings& keys,
+                            const ValueFunc& func) const = 0;
 
 private:
-    Plugin( const Plugin& ) = delete;
-    Plugin( Plugin&& ) = delete;
-    Plugin& operator=( const Plugin& ) = delete;
-    Plugin& operator=( Plugin&& ) = delete;
+    Plugin(const Plugin&) = delete;
+    Plugin(Plugin&&) = delete;
+    Plugin& operator=(const Plugin&) = delete;
+    Plugin& operator=(Plugin&&) = delete;
 };
 }
