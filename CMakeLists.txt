@@ -15,14 +15,14 @@ set(KEYV_DESCRIPTION
 set(KEYV_MAINTAINER "Blue Brain Project <bbp-open-source@googlegroups.com>")
 set(KEYV_LICENSE LGPL)
 
-set(KEYV_DEB_DEPENDS libboost-test-dev
+set(KEYV_DEB_DEPENDS libboost-filesystem-dev libboost-test-dev
   libleveldb-dev libmemcached-dev libmemcached-tools librados-dev memcached)
 set(KEYV_PORT_DEPENDS boost libmemcached memcached)
 
 set(COMMON_PROJECT_DOMAIN ch.epfl.bluebrain)
 include(Common)
 
-common_find_package(Boost REQUIRED COMPONENTS unit_test_framework)
+common_find_package(Boost REQUIRED COMPONENTS filesystem unit_test_framework)
 common_find_package(Lunchbox REQUIRED)
 common_find_package(Servus REQUIRED)
 common_find_package(leveldb)
@@ -34,8 +34,7 @@ if(libmemcached_FOUND)
     common_find_package(Pression REQUIRED)
   endif()
 endif()
-#set(RADOS_FOUND TRUE) # TBD RADOS finder
-#add_definitions(-DKEYV_USE_RADOS) # TBD done be common_package
+common_find_package(rados)
 common_find_package_post()
 
 add_subdirectory(keyv)
