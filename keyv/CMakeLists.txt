@@ -1,4 +1,4 @@
-# Copyright (c) BBP/EPFL 2016 Stefan.Eilemann@epfl.ch
+# Copyright (c) BBP/EPFL 2016-2017 Stefan.Eilemann@epfl.ch
 
 set(KEYV_PUBLIC_HEADERS Map.h Plugin.h types.h)
 set(KEYV_SOURCES Map.cpp)
