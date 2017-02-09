@@ -26,8 +26,7 @@ common_find_package(Pression REQUIRED)
 common_find_package(Servus REQUIRED)
 common_find_package(leveldb)
 common_find_package(libmemcached 1.0.12)
-#set(RADOS_FOUND TRUE) # TBD RADOS finder
-#add_definitions(-DKEYV_USE_RADOS) # TBD done be common_package
+common_find_package(rados)
 common_find_package_post()
 
 add_subdirectory(keyv)

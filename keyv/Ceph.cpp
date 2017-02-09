@@ -19,8 +19,12 @@
 
 #include <keyv/Plugin.h>
 
+#include <lunchbox/log.h>
 #include <lunchbox/pluginRegisterer.h>
+
 #include <rados/librados.hpp>
+
+#include <unordered_map>
 
 namespace keyv
 {
@@ -28,147 +32,44 @@ class Ceph;
 
 namespace
 {
-lunchbox::PluginRegisterer< Ceph > registerer;
+lunchbox::PluginRegisterer<Ceph> registerer;
 
-void _throw( const std::string& reason, const int error )
+void _throw(const std::string& reason, const int error)
 {
-    throw std::runtime_error( reason + ": " + ::strerror( -error ));
+    LBTHROW(std::runtime_error(reason + ": " + ::strerror(-error)));
 }
 }
 
 class Ceph : public Plugin
 {
 public:
-    Ceph( const servus::URI& uri )
-        : _maxPendingOps( 0 )
-    {
-        const int init = _cluster.init2( uri.getUserinfo().c_str(),
-                                         "ceph", 0 /*flags*/ );
-        if( init < 0 )
-            _throw( "Cannot initialize rados cluster", init );
+    Ceph(const servus::URI& uri);
 
-        const int conf = _cluster.conf_read_file( uri.getPath().c_str( ));
-        if( conf < 0 )
-            _throw( "Cannot read ceph config '" + uri.getPath() + "'", conf );
+    ~Ceph();
 
-        const int conn = _cluster.connect();
-        if( conn < 0 )
-            _throw( "Could not connect rados cluster", conn );
+    static bool handles(const servus::URI& uri);
+    static std::string getDescription();
 
-        const int ctx = _cluster.ioctx_create( uri.getHost().c_str(),
-                                               _context );
-        if( ctx < 0 )
-            _throw( "Could not create io context", ctx );
+    size_t setQueueDepth(const size_t depth) final;
 
-    }
+    bool insert(const std::string& key, const void* data,
+                const size_t size) final;
 
-    virtual ~Ceph()
-    {
-        _context.close();
-        _cluster.shutdown();
-    }
+    std::string operator[](const std::string& key) const final;
 
-    static bool handles( const servus::URI& uri )
-        { return uri.getScheme() == "ceph"; }
+    void takeValues(const Strings& keys, const ValueFunc& func) const final;
 
-    static std::string getDescription()
-        { return "ceph://user@host/path_to_ceph_config"; }
+    void getValues(const Strings& keys, const ConstValueFunc& func) const final;
 
-    size_t setQueueDepth( const size_t depth ) final
-    {
-        _maxPendingOps = depth;
-        //LBCHECK( _flush( _maxPendingOps ));
-        return _maxPendingOps;
-    }
+    void erase(const std::string& key) final;
 
-    bool insert( const std::string& key, const void* data, const size_t size )
-        final
-    {
-        librados::bufferlist bl;
-        bl.append( (const char*)data, size );
-
-        if( _maxPendingOps == 0 ) // sync write
-        {
-            const int write = _context.write_full( key, bl );
-            if( write >= 0 )
-                return true;
-
-            std::cerr <<  "Write failed: " << ::strerror( -write ) << std::endl;
-            return false;
-        }
-
-        librados::AioCompletion* op = librados::Rados::aio_create_completion();
-        const int write = _context.aio_write_full( key, op, bl );
-        if( write < 0 )
-        {
-            std::cerr <<  "Write failed: " << ::strerror( -write )
-                      << std::endl;
-            delete op;
-            return false;
-        }
-        _writes.push_back( op );
-        return _flush( _maxPendingOps );
-    }
-
-    std::string operator [] ( const std::string& key ) const final
-    {
-        const librados::bufferlist bl = _get( key );
-        std::string value;
-        if( bl.length() > 0 )
-            bl.copy( 0, bl.length(), value );
-        return value;
-    }
-
-    void takeValues( const Strings& keys, const ValueFunc& func ) const final
-    {
-        size_t fetchedIndex = 0;
-        for( const auto& key: keys )
-        {
-            // pre-fetch requested values
-            while( _reads.size() >= _maxPendingOps &&
-                   fetchedIndex < keys.size( ))
-            {
-                _fetch( keys[ fetchedIndex++ ], 0 );
-            }
-
-            // get current key
-            librados::bufferlist bl = _get( key );
-            if( bl.length() == 0 )
-                continue;
-
-            char* copy = (char*)malloc( bl.length( ));
-            bl.copy( 0, bl.length(), copy );
-            func( key, copy, bl.length( ));
-        }
-    }
-
-    void getValues( const Strings& keys, const ConstValueFunc& func )
-        const final
-    {
-        size_t fetchedIndex = 0;
-        for( const auto& key: keys )
-        {
-            // pre-fetch requested values
-            while( _reads.size() >= _maxPendingOps &&
-                   fetchedIndex < keys.size( ))
-            {
-                _fetch( keys[ fetchedIndex++ ], 0 );
-            }
-
-            // get current key
-            const auto& value = (*this)[ key ];
-            func( key, value.data(), value.size( ));
-        }
-    }
-
-    bool flush() final { return _flush( 0 ); }
-
+    bool flush() final { return _flush(0); }
 private:
     librados::Rados _cluster;
     mutable librados::IoCtx _context;
     size_t _maxPendingOps;
 
-    typedef std::unique_ptr< librados::AioCompletion > AioPtr;
+    typedef std::unique_ptr<librados::AioCompletion> AioPtr;
 
     struct AsyncRead
     {
@@ -177,119 +78,272 @@ private:
         librados::bufferlist bl;
     };
 
-    typedef stde::hash_map< std::string, AsyncRead > ReadMap;
-    typedef std::deque< librados::AioCompletion* > Writes;
+    typedef std::unordered_map<std::string, AsyncRead> ReadMap;
+    typedef std::deque<librados::AioCompletion*> Writes;
 
     mutable ReadMap _reads;
     Writes _writes;
 
-    bool _fetch( const std::string& key, const size_t sizeHint ) const
+    bool _fetch(const std::string& key, const size_t sizeHint) const;
+
+    bool _flush(const size_t maxPending);
+
+    librados::bufferlist _get(const std::string& key) const;
+};
+
+inline Ceph::Ceph(const servus::URI& uri)
+    : _maxPendingOps(0)
+{
+    const auto poolName = uri.getUserinfo();
+    const auto userName = "client." + poolName;
+    u_int64_t flags = 0;
+    int ret = _cluster.init2(userName.c_str(), uri.getHost().c_str(), flags);
+    if (ret < 0)
+        _throw("Cannot initialize rados cluster", ret);
+
+    auto pos = uri.findQuery("config");
+    if (pos != uri.queryEnd())
     {
-        if( _reads.size() >= _maxPendingOps )
-            return true;
+        ret = _cluster.conf_read_file(pos->second.c_str());
+        if (ret < 0)
+            _throw("Cannot read ceph config '" + pos->second + "'", ret);
+    }
 
-        AsyncRead& asyncRead = _reads[ key ];
-        if( asyncRead.op )
-            return true; // fetch for key already pending
-
-        asyncRead.op.reset( librados::Rados::aio_create_completion( ));
-        uint64_t size = sizeHint;
-        if( size == 0 )
+    pos = uri.findQuery("keyring");
+    if (pos != uri.queryEnd())
+    {
+        ret = _cluster.conf_set("keyring", pos->second.c_str());
+        if (ret < 0)
         {
-            time_t time;
-            const int stat = _context.stat( key, &size, &time );
-            if( stat < 0 || size == 0 )
-            {
-                std::cerr << "Stat " << key << " failed: "
-                          << ::strerror( -stat ) << std::endl;
-                return false;
-            }
+            _throw("Cannot read ceph keyring '" + pos->second + "'", ret);
         }
+    }
 
-        const int read = _context.aio_read( key, asyncRead.op.get(),
-                                            &asyncRead.bl, size, 0 );
-        if( read >= 0 )
+    ret = _cluster.connect();
+    if (ret < 0)
+        _throw("Could not connect rados cluster", ret);
+
+    ret = _cluster.ioctx_create(poolName.c_str(), _context);
+    if (ret < 0)
+        _throw("Could not create io context", ret);
+}
+
+inline Ceph::~Ceph()
+{
+    _context.close();
+    _cluster.shutdown();
+}
+
+inline bool Ceph::handles(const servus::URI& uri)
+{
+    return uri.getScheme() == "ceph";
+}
+
+inline std::string Ceph::getDescription()
+{
+    return "ceph://user@cluster?config=path&keyring=path";
+}
+
+inline size_t Ceph::setQueueDepth(const size_t depth)
+{
+    _maxPendingOps = depth;
+    // LBCHECK( _flush( _maxPendingOps ));
+    return _maxPendingOps;
+}
+
+inline bool Ceph::insert(const std::string& key, const void* data,
+                         const size_t size)
+{
+    librados::bufferlist bl;
+    bl.append((const char*)data, size);
+
+    if (_maxPendingOps == 0) // sync write
+    {
+        const int write = _context.write_full(key, bl);
+        if (write >= 0)
             return true;
 
-        std::cerr <<  "Fetch failed: " << ::strerror( -read ) << std::endl;
+        std::cerr << "Write failed: " << ::strerror(-write) << std::endl;
         return false;
     }
 
-    bool _flush( const size_t maxPending )
+    librados::AioCompletion* op = librados::Rados::aio_create_completion();
+    const int write = _context.aio_write_full(key, op, bl);
+    if (write < 0)
     {
-        if( maxPending == 0 )
-        {
-            const int flushAll = _context.aio_flush();
-            while( !_writes.empty( ))
-            {
-                delete _writes.front();
-                _writes.pop_front();
-            }
-            if( flushAll >= 0 )
-                return true;
+        std::cerr << "Write failed: " << ::strerror(-write) << std::endl;
+        delete op;
+        return false;
+    }
+    _writes.push_back(op);
+    return _flush(_maxPendingOps);
+}
 
-            std::cerr <<  "Flush all writes failed: " << ::strerror( -flushAll )
+inline std::string Ceph::operator[](const std::string& key) const
+{
+    const librados::bufferlist bl = _get(key);
+    std::string value;
+    if (bl.length() > 0)
+        bl.copy(0, bl.length(), value);
+    return value;
+}
+
+inline void Ceph::takeValues(const lunchbox::Strings& keys,
+                             const ValueFunc& func) const
+{
+    size_t fetchedIndex = 0;
+    for (const auto& key : keys)
+    {
+        // pre-fetch requested values
+        while (_reads.size() >= _maxPendingOps && fetchedIndex < keys.size())
+        {
+            _fetch(keys[fetchedIndex++], 0);
+        }
+
+        // get current key
+        librados::bufferlist bl = _get(key);
+        if (bl.length() == 0)
+            continue;
+
+        char* copy = (char*)malloc(bl.length());
+        bl.copy(0, bl.length(), copy);
+        func(key, copy, bl.length());
+    }
+}
+
+inline void Ceph::getValues(const lunchbox::Strings& keys,
+                            const ConstValueFunc& func) const
+{
+    size_t fetchedIndex = 0;
+    for (const auto& key : keys)
+    {
+        // pre-fetch requested values
+        while (_reads.size() >= _maxPendingOps && fetchedIndex < keys.size())
+        {
+            _fetch(keys[fetchedIndex++], 0);
+        }
+
+        // get current key
+        const auto& value = (*this)[key];
+        func(key, value.data(), value.size());
+    }
+}
+
+inline void Ceph::erase(const std::string& key)
+{
+    const int write = _context.remove(key);
+    if (write < 0)
+    {
+        std::cerr << "Erase failed: " << ::strerror(-write) << std::endl;
+    }
+}
+
+inline bool Ceph::_fetch(const std::string& key, const size_t sizeHint) const
+{
+    if (_reads.size() >= _maxPendingOps)
+        return true;
+
+    AsyncRead& asyncRead = _reads[key];
+    if (asyncRead.op)
+        return true; // fetch for key already pending
+
+    asyncRead.op.reset(librados::Rados::aio_create_completion());
+    uint64_t size = sizeHint;
+    if (size == 0)
+    {
+        time_t time;
+        const int stat = _context.stat(key, &size, &time);
+        if (stat < 0 || size == 0)
+        {
+            std::cerr << "Stat " << key << " failed: " << ::strerror(-stat)
                       << std::endl;
             return false;
         }
+    }
 
-        bool ok = true;
-        while( _writes.size() > maxPending )
+    const int read =
+        _context.aio_read(key, asyncRead.op.get(), &asyncRead.bl, size, 0);
+    if (read >= 0)
+        return true;
+
+    std::cerr << "Fetch failed: " << ::strerror(-read) << std::endl;
+    return false;
+}
+
+inline bool Ceph::_flush(const size_t maxPending)
+{
+    if (maxPending == 0)
+    {
+        const int flushAll = _context.aio_flush();
+
+        while (!_writes.empty())
         {
-            _writes.front()->wait_for_complete();
-            const int write = _writes.front()->get_return_value();
-            if( write < 0 )
-            {
-                std::cerr <<  "Finish write failed: " << ::strerror( -write )
-                          << std::endl;
-                ok = false;
-            }
             delete _writes.front();
             _writes.pop_front();
         }
-        return ok;
+        if (flushAll >= 0)
+            return true;
+
+        std::cerr << "Flush all writes failed: " << ::strerror(-flushAll)
+                  << std::endl;
+        return false;
     }
 
-    librados::bufferlist&& _get( const std::string& key ) const
+    bool ok = true;
+    while (_writes.size() > maxPending)
     {
-        librados::bufferlist bl;
-        ReadMap::iterator i = _reads.find( key );
-        if( i == _reads.end( ))
+        _writes.front()->wait_for_complete();
+        const int write = _writes.front()->get_return_value();
+        if (write < 0)
         {
-            uint64_t size = 0;
-            time_t time;
-            const int stat = _context.stat( key, &size, &time );
-            if( stat < 0 || size == 0 )
-            {
-                std::cerr << "Stat '" << key << "' failed: "
-                          << ::strerror( -stat ) << std::endl;
-                return std::move( bl );
-            }
-
-            const int read = _context.read( key, bl, size, 0 );
-            if( read < 0 )
-            {
-                std::cerr << "Read '" << key << "' failed: "
-                          << ::strerror( -read ) << std::endl;
-                return std::move( bl );
-            }
+            std::cerr << "Finish write failed: " << ::strerror(-write)
+                      << std::endl;
+            ok = false;
         }
-        else
-        {
-            i->second.op->wait_for_complete();
-            const int read = i->second.op->get_return_value();
-            if( read < 0 )
-            {
-                std::cerr <<  "Finish read '" << key << "' failed: "
-                          << ::strerror( -read ) << std::endl;
-                return std::move( bl );
-            }
-
-            i->second.bl.swap( bl );
-            _reads.erase( i );
-        }
-        return std::move( bl );
+        delete _writes.front();
+        _writes.pop_front();
     }
+    return ok;
+}
 
-};
+inline ceph::bufferlist Ceph::_get(const std::string& key) const
+{
+    librados::bufferlist bl;
+    ReadMap::iterator i = _reads.find(key);
+    if (i == _reads.end())
+    {
+        uint64_t size = 0;
+        time_t time;
+        const int stat = _context.stat(key, &size, &time);
+        if (stat < 0 || size == 0)
+        {
+            std::cerr << "Stat '" << key << "' failed: " << ::strerror(-stat)
+                      << std::endl;
+            return std::move(bl);
+        }
+
+        const int read = _context.read(key, bl, size, 0);
+        if (read < 0)
+        {
+            std::cerr << "Read '" << key << "' failed: " << ::strerror(-read)
+                      << std::endl;
+            return bl;
+        }
+    }
+    else
+    {
+        i->second.op->wait_for_complete();
+        const int read = i->second.op->get_return_value();
+        if (read < 0)
+        {
+            std::cerr << "Finish read '" << key
+                      << "' failed: " << ::strerror(-read) << std::endl;
+            return bl;
+        }
+
+        i->second.bl.swap(bl);
+        _reads.erase(i);
+    }
+    return bl;
+}
 }
