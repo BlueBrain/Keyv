@@ -1,4 +1,4 @@
-/ˈkiːwi/:
+/ˈkiːwi/
 =======
 
 # Overview
@@ -24,4 +24,3 @@ Building from source is as simple as:
     cd Keyv/build
     cmake -GNinja ..
     ninja
-

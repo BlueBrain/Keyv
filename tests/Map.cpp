@@ -1,5 +1,5 @@
 
-/* Copyright (c) 2014-2016, Stefan.Eilemann@epfl.ch
+/* Copyright (c) 2014-2017, Stefan.Eilemann@epfl.ch
  *
  * This file is part of Keyv <https://github.com/BlueBrain/Keyv>
  *

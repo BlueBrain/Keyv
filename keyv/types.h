@@ -34,10 +34,10 @@
 #ifndef KEYV_TYPES_H
 #define KEYV_TYPES_H
 
+#include <functional>
 #include <keyv/defines.h>
 #include <lunchbox/types.h>
 #include <memory>
-#include <functional>
 
 namespace keyv
 {
@@ -50,16 +50,16 @@ class Plugin;
  * Callback for Map::takeValues(), providing the key, pointer and size
  * of the value.
  */
-using ValueFunc = std::function< void( const std::string&, char*, size_t ) >;
+using ValueFunc = std::function<void(const std::string&, char*, size_t)>;
 
 /**
  * Callback for Map::getValues(), providing the key, pointer and size
  * of the value.
  */
-using ConstValueFunc = std::function< void( const std::string&, const char*,
-                                            size_t ) >;
+using ConstValueFunc =
+    std::function<void(const std::string&, const char*, size_t)>;
 
-typedef std::shared_ptr< Map > MapPtr;
+typedef std::shared_ptr<Map> MapPtr;
 }
 
-#endif //KEYV_TYPES_H
+#endif // KEYV_TYPES_H
