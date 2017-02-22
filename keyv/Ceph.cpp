@@ -24,7 +24,11 @@
 
 #include <rados/librados.hpp>
 
+#include <boost/filesystem.hpp>
+
 #include <unordered_map>
+
+#include <pwd.h>
 
 namespace keyv
 {
@@ -92,7 +96,7 @@ private:
 };
 
 inline Ceph::Ceph(const servus::URI& uri)
-    : _maxPendingOps(0)
+    : _maxPendingOps(256)
 {
     const auto poolName = uri.getUserinfo();
     const auto userName = "client." + poolName;
@@ -101,21 +105,48 @@ inline Ceph::Ceph(const servus::URI& uri)
     if (ret < 0)
         _throw("Cannot initialize rados cluster", ret);
 
+    static const passwd* pw = getpwuid(getuid());
+    static const std::string homeDir(pw->pw_dir);
+
     auto pos = uri.findQuery("config");
+    std::string configFile;
     if (pos != uri.queryEnd())
     {
-        ret = _cluster.conf_read_file(pos->second.c_str());
+        configFile = pos->second;
+    }
+    else {
+        configFile = homeDir+"/.ceph/config";
+        if(!boost::filesystem::exists(configFile))
+        {
+            configFile.clear();
+        }
+    }
+    if (!configFile.empty())
+    {
+        ret = _cluster.conf_read_file(configFile.c_str());
         if (ret < 0)
-            _throw("Cannot read ceph config '" + pos->second + "'", ret);
+            _throw("Cannot read ceph config '" + configFile + "'", ret);
     }
 
     pos = uri.findQuery("keyring");
+    std::string keyringFile;
     if (pos != uri.queryEnd())
     {
-        ret = _cluster.conf_set("keyring", pos->second.c_str());
+        keyringFile = pos->second;
+    }
+    else {
+        keyringFile = homeDir+"/.ceph/keyring";
+        if(!boost::filesystem::exists(keyringFile))
+        {
+            keyringFile.clear();
+        }
+    }
+    if (!keyringFile.empty())
+    {
+        ret = _cluster.conf_set("keyring", keyringFile.c_str());
         if (ret < 0)
         {
-            _throw("Cannot read ceph keyring '" + pos->second + "'", ret);
+            _throw("Cannot read ceph keyring '" + keyringFile + "'", ret);
         }
     }
 
@@ -147,7 +178,6 @@ inline std::string Ceph::getDescription()
 inline size_t Ceph::setQueueDepth(const size_t depth)
 {
     _maxPendingOps = depth;
-    // LBCHECK( _flush( _maxPendingOps ));
     return _maxPendingOps;
 }
 

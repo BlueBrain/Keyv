@@ -343,6 +343,8 @@ void testCephFailures()
         uri.setScheme("ceph");
         uri.setUserInfo(user);
         uri.setHost(cluster);
+        uri.addQuery("config","");
+        uri.addQuery("keyring","");
 
         setup(std::to_string(uri));
     }
