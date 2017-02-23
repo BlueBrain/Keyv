@@ -232,7 +232,8 @@ inline void Ceph::getValues(const lunchbox::Strings& keys,
     {
         if (pair.second.length() == 0)
             continue;
-        std::string data = pair.second.to_str();
+        std::string data;
+        std::copy(pair.second.begin(),pair.second.end(),data.begin());
         func(pair.first, data.c_str(), pair.second.length());
     }
 }
