@@ -44,6 +44,9 @@
 
 #include <stdexcept>
 
+#define MAX_SIZE (1024 * 256)
+
+
 using keyv::Map;
 
 const int ints[] = {17, 53, 42, 65535, 32768};
@@ -390,13 +393,13 @@ int main(const int argc, char* argv[])
     typedef std::vector<TestSpec> TestSpecs;
     TestSpecs tests;
 #ifdef KEYV_USE_LEVELDB
-    tests.push_back(TestSpec("", 0, 65536));
-    tests.push_back(TestSpec("leveldb://", 0, 65536));
-    tests.push_back(TestSpec("leveldb://?store=keyvMap2.leveldb", 0, 65536));
+    tests.push_back(TestSpec("", 0, MAX_SIZE));
+    tests.push_back(TestSpec("leveldb://", 0, MAX_SIZE));
+    tests.push_back(TestSpec("leveldb://?store=keyvMap2.leveldb", 0, MAX_SIZE));
 #endif
 #ifdef KEYV_USE_LIBMEMCACHED
     if (testAvailable("memcached://"))
-        tests.push_back(TestSpec("memcached://", 65536, 65536));
+        tests.push_back(TestSpec("memcached://", 65536, MAX_SIZE));
 #endif
 #ifdef KEYV_USE_RADOS
     std::string config =
@@ -446,7 +449,7 @@ int main(const int argc, char* argv[])
     uri.addQuery("config", configFilePath);
     uri.addQuery("keyring", keyringFilePath);
 
-    tests.push_back(TestSpec(std::to_string(uri), 1024, 65536));
+    tests.push_back(TestSpec(std::to_string(uri), 0, MAX_SIZE));
 #endif
 
     try
