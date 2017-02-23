@@ -185,7 +185,8 @@ inline std::string Ceph::operator[](const std::string& key) const
     }
 
     auto pos = map.find(key);
-    if (pos == map.end()) {
+    if (pos == map.end())
+    {
         return std::string();
     }
     return pos->second.to_str();

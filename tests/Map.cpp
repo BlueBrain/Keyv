@@ -46,7 +46,6 @@
 
 #define MAX_SIZE (1024 * 256)
 
-
 using keyv::Map;
 
 const int ints[] = {17, 53, 42, 65535, 32768};
@@ -346,8 +345,8 @@ void testCephFailures()
         uri.setScheme("ceph");
         uri.setUserInfo(user);
         uri.setHost(cluster);
-        uri.addQuery("config","");
-        uri.addQuery("keyring","");
+        uri.addQuery("config", "");
+        uri.addQuery("keyring", "");
 
         setup(std::to_string(uri));
     }
