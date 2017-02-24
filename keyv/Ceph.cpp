@@ -204,7 +204,7 @@ inline void Ceph::takeValues(const lunchbox::Strings& keys,
         return;
     }
 
-    for (const auto& pair : map)
+    for (auto& pair : map)
     {
         librados::bufferlist bl = pair.second;
         if (bl.length() == 0)
@@ -228,7 +228,7 @@ inline void Ceph::getValues(const lunchbox::Strings& keys,
         return;
     }
 
-    for (const auto& pair : map)
+    for (auto& pair : map)
     {
         if (pair.second.length() == 0)
             continue;
