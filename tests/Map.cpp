@@ -36,6 +36,7 @@
 #include <lunchbox/os.h>
 #include <lunchbox/rng.h>
 #include <lunchbox/test.h>
+#include <lunchbox/threadPool.h>
 
 #ifdef KEYV_USE_LEVELDB
 #include <leveldb/db.h>
@@ -290,6 +291,96 @@ void benchmark(const std::string& uriStr, const uint64_t queueDepth,
     map.flush();
 }
 
+void benchmarkMultithreaded(const std::string& uriStr, const size_t threadCount,
+                            const size_t valueSize)
+{
+    static std::string lastURI;
+    if (uriStr != lastURI)
+    {
+        std::cout
+            << " #thr ,     size,  writes/s,     MB/s,  reads/s,      MB/s"
+            << std::endl;
+        lastURI = uriStr;
+    }
+
+    std::vector<Map> maps;
+
+    const servus::URI uri(uriStr);
+
+    for (size_t i = 0; i < threadCount; ++i)
+    {
+        maps.emplace_back(uri);
+    }
+
+    std::string value(valueSize, '*');
+
+    lunchbox::RNG rng;
+    for (size_t i = 0; i < valueSize; ++i)
+        value[i] = rng.get<char>();
+
+    auto writeTask = [&](size_t id) {
+
+        std::pair<size_t, size_t> key;
+        key.first = id;
+
+        key.second = valueSize;
+        std::string keyStr;
+        keyStr.assign(reinterpret_cast<char*>(&key), sizeof(key));
+        maps[id].insert(keyStr, value);
+        maps[id].flush();
+    };
+
+    auto readTask = [&](size_t id) {
+
+        std::pair<size_t, size_t> key;
+        key.first = id;
+        key.second = valueSize;
+        std::string keyStr;
+        keyStr.assign(reinterpret_cast<char*>(&key), sizeof(key));
+        maps[id][keyStr];
+
+        maps[id].flush();
+    };
+
+    lunchbox::ThreadPool threadPool{threadCount};
+
+    std::vector<std::future<void>> status;
+    lunchbox::Clock clock;
+
+    for (size_t i = 0; i < threadCount; ++i)
+    {
+        status.push_back(threadPool.post(std::bind(writeTask, i)));
+    }
+
+    for (auto& f : status)
+        f.get();
+    status.clear();
+
+    float writeTime = clock.getTimef() / 1000.f;
+
+    clock.reset();
+
+    for (size_t i = 0; i < threadCount; ++i)
+    {
+        status.push_back(threadPool.post(std::bind(readTask, i)));
+    }
+
+    for (auto& f : status)
+        f.get();
+
+    float readTime = clock.getTimef() / 1000.f;
+
+    float dataSizeMB = valueSize / 1024.f / 1024.f;
+
+    // threads,     size,  writes/s,     MB/s,  reads/s,      MB/s
+    std::cout << boost::format("%6i, %8i,%9.2f, %9.2f,%9.2f, %9.2f") %
+                     threadCount % valueSize % (threadCount / writeTime) %
+                     (dataSizeMB * threadCount / writeTime) %
+                     (threadCount / readTime) %
+                     (dataSizeMB * threadCount / readTime)
+              << std::endl;
+}
+
 void testGenericFailures()
 {
     try
@@ -366,16 +457,19 @@ size_t dup(const size_t value)
 
 struct TestSpec
 {
-    TestSpec(const std::string& uri_, const size_t depth_, const size_t size_)
+    TestSpec(const std::string& uri_, const size_t depth_, const size_t size_,
+             const size_t threadCount_ = 1)
         : uri(uri_)
         , depth(depth_)
         , size(size_)
+        , threadCount(threadCount_)
     {
     }
 
     std::string uri;
     size_t depth;
     size_t size;
+    size_t threadCount = 1;
 };
 
 int main(const int argc, char* argv[])
@@ -448,7 +542,7 @@ int main(const int argc, char* argv[])
     uri.addQuery("config", configFilePath);
     uri.addQuery("keyring", keyringFilePath);
 
-    tests.push_back(TestSpec(std::to_string(uri), 0, MAX_SIZE));
+    tests.push_back(TestSpec(std::to_string(uri), 0, MAX_SIZE, 8));
 #endif
 
     try
@@ -466,6 +560,14 @@ int main(const int argc, char* argv[])
                     benchmark(test.uri, test.depth, i);
                 for (size_t i = 0; i <= test.depth; i = dup(i))
                     benchmark(test.uri, i, 1024);
+
+                if (test.threadCount > 1)
+                {
+                    for (size_t threadCount = 1;
+                         threadCount <= test.threadCount; ++threadCount)
+                        for (size_t s = 1; s <= test.size; s = s << 2)
+                            benchmarkMultithreaded(test.uri, threadCount, s);
+                }
             }
         }
     }
