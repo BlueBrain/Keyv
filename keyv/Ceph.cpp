@@ -191,7 +191,7 @@ inline std::string Ceph::operator[](const std::string& key) const
     }
 
     char* data = pos->second.c_str();
-    std::string str (data,pos->second.length());
+    std::string str(data, pos->second.length());
     return str;
 }
 
@@ -215,7 +215,7 @@ inline void Ceph::takeValues(const lunchbox::Strings& keys,
 
         char* data = pair.second.c_str();
         char* copy = (char*)malloc(bl.length());
-        std::copy(data,data+ bl.length(),copy);
+        std::copy(data, data + bl.length(), copy);
         func(pair.first, copy, bl.length());
     }
 }
