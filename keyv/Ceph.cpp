@@ -76,14 +76,15 @@ private:
 inline Ceph::Ceph(const servus::URI& uri)
 {
     const auto poolName = uri.getUserinfo();
-    const auto userName = "client." + poolName;
+    const auto cephUserName = "client." + poolName;
     u_int64_t flags = 0;
-    int ret = _cluster.init2(userName.c_str(), uri.getHost().c_str(), flags);
+    int ret = _cluster.init2(cephUserName.c_str(), uri.getHost().c_str(), flags);
     if (ret < 0)
         _throw("Cannot initialize rados cluster", ret);
 
-    static const passwd* pw = getpwuid(getuid());
-    static const std::string homeDir(pw->pw_dir);
+    static const std::string homeDir = getenv("HOME");
+    static const std::string userName =
+        getenv("USERNAME") ? getenv("USERNAME") : getenv("USER");
 
     auto pos = uri.findQuery("config");
     std::string configFile;
@@ -139,7 +140,7 @@ inline Ceph::Ceph(const servus::URI& uri)
 
     pos = uri.findQuery("store");
     _storeName = (pos == uri.queryEnd())
-                     ? (std::string("keyvMap.") + pw->pw_name)
+                     ? (std::string("keyvMap.") + userName)
                      : pos->second;
 }
 
@@ -156,7 +157,7 @@ inline bool Ceph::handles(const servus::URI& uri)
 
 inline std::string Ceph::getDescription()
 {
-    return "ceph://user@cluster?store=storeName&config=path&keyring=path";
+    return "ceph://user@cluster?[store=storeName&config=path&keyring=path]";
 }
 
 inline bool Ceph::insert(const std::string& key, const void* data,
