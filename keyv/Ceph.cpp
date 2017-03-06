@@ -16,11 +16,18 @@
  * along with this library; if not, write to the Free Software Foundation, Inc.,
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
-
 #include <keyv/Plugin.h>
 
+#include <lunchbox/log.h>
 #include <lunchbox/pluginRegisterer.h>
+
 #include <rados/librados.hpp>
+
+#include <boost/filesystem.hpp>
+
+#include <unordered_map>
+
+#include <pwd.h>
 
 namespace keyv
 {
@@ -32,262 +39,215 @@ lunchbox::PluginRegisterer<Ceph> registerer;
 
 void _throw(const std::string& reason, const int error)
 {
-    throw std::runtime_error(reason + ": " + ::strerror(-error));
+    LBTHROW(std::runtime_error(reason + ": " + ::strerror(-error)));
 }
 }
 
 class Ceph : public Plugin
 {
 public:
-    Ceph(const servus::URI& uri)
-        : _maxPendingOps(0)
-    {
-        const int init =
-            _cluster.init2(uri.getUserinfo().c_str(), "ceph", 0 /*flags*/);
-        if (init < 0)
-            _throw("Cannot initialize rados cluster", init);
+    Ceph(const servus::URI& uri);
 
-        const int conf = _cluster.conf_read_file(uri.getPath().c_str());
-        if (conf < 0)
-            _throw("Cannot read ceph config '" + uri.getPath() + "'", conf);
+    ~Ceph();
 
-        const int conn = _cluster.connect();
-        if (conn < 0)
-            _throw("Could not connect rados cluster", conn);
-
-        const int ctx = _cluster.ioctx_create(uri.getHost().c_str(), _context);
-        if (ctx < 0)
-            _throw("Could not create io context", ctx);
-    }
-
-    virtual ~Ceph()
-    {
-        _context.close();
-        _cluster.shutdown();
-    }
-
-    static bool handles(const servus::URI& uri)
-    {
-        return uri.getScheme() == "ceph";
-    }
-
-    static std::string getDescription()
-    {
-        return "ceph://user@host/path_to_ceph_config";
-    }
-
-    size_t setQueueDepth(const size_t depth) final
-    {
-        _maxPendingOps = depth;
-        // LBCHECK( _flush( _maxPendingOps ));
-        return _maxPendingOps;
-    }
+    static bool handles(const servus::URI& uri);
+    static std::string getDescription();
 
     bool insert(const std::string& key, const void* data,
-                const size_t size) final
-    {
-        librados::bufferlist bl;
-        bl.append((const char*)data, size);
+                const size_t size) final;
 
-        if (_maxPendingOps == 0) // sync write
-        {
-            const int write = _context.write_full(key, bl);
-            if (write >= 0)
-                return true;
+    std::string operator[](const std::string& key) const final;
 
-            std::cerr << "Write failed: " << ::strerror(-write) << std::endl;
-            return false;
-        }
+    void takeValues(const Strings& keys, const ValueFunc& func) const final;
 
-        librados::AioCompletion* op = librados::Rados::aio_create_completion();
-        const int write = _context.aio_write_full(key, op, bl);
-        if (write < 0)
-        {
-            std::cerr << "Write failed: " << ::strerror(-write) << std::endl;
-            delete op;
-            return false;
-        }
-        _writes.push_back(op);
-        return _flush(_maxPendingOps);
-    }
+    void getValues(const Strings& keys, const ConstValueFunc& func) const final;
 
-    std::string operator[](const std::string& key) const final
-    {
-        const librados::bufferlist bl = _get(key);
-        std::string value;
-        if (bl.length() > 0)
-            bl.copy(0, bl.length(), value);
-        return value;
-    }
+    void erase(const std::string& key) final;
 
-    void takeValues(const Strings& keys, const ValueFunc& func) const final
-    {
-        size_t fetchedIndex = 0;
-        for (const auto& key : keys)
-        {
-            // pre-fetch requested values
-            while (_reads.size() >= _maxPendingOps &&
-                   fetchedIndex < keys.size())
-            {
-                _fetch(keys[fetchedIndex++], 0);
-            }
-
-            // get current key
-            librados::bufferlist bl = _get(key);
-            if (bl.length() == 0)
-                continue;
-
-            char* copy = (char*)malloc(bl.length());
-            bl.copy(0, bl.length(), copy);
-            func(key, copy, bl.length());
-        }
-    }
-
-    void getValues(const Strings& keys, const ConstValueFunc& func) const final
-    {
-        size_t fetchedIndex = 0;
-        for (const auto& key : keys)
-        {
-            // pre-fetch requested values
-            while (_reads.size() >= _maxPendingOps &&
-                   fetchedIndex < keys.size())
-            {
-                _fetch(keys[fetchedIndex++], 0);
-            }
-
-            // get current key
-            const auto& value = (*this)[key];
-            func(key, value.data(), value.size());
-        }
-    }
-
-    bool flush() final { return _flush(0); }
+    bool flush() final { return true; }
 private:
     librados::Rados _cluster;
     mutable librados::IoCtx _context;
-    size_t _maxPendingOps;
+    std::string _storeName;
 
-    typedef std::unique_ptr<librados::AioCompletion> AioPtr;
+    using IOMap = std::map<std::string, librados::bufferlist>;
+};
 
-    struct AsyncRead
+inline Ceph::Ceph(const servus::URI& uri)
+{
+    const auto poolName = uri.getUserinfo();
+    const auto cephUserName = "client." + poolName;
+    u_int64_t flags = 0;
+    int ret = _cluster.init2(cephUserName.c_str(), uri.getHost().c_str(), flags);
+    if (ret < 0)
+        _throw("Cannot initialize rados cluster", ret);
+
+    static const std::string homeDir = getenv("HOME");
+    static const std::string userName =
+        getenv("USERNAME") ? getenv("USERNAME") : getenv("USER");
+
+    auto pos = uri.findQuery("config");
+    std::string configFile;
+    if (pos != uri.queryEnd())
     {
-        AsyncRead() {}
-        AioPtr op;
-        librados::bufferlist bl;
-    };
-
-    typedef stde::hash_map<std::string, AsyncRead> ReadMap;
-    typedef std::deque<librados::AioCompletion*> Writes;
-
-    mutable ReadMap _reads;
-    Writes _writes;
-
-    bool _fetch(const std::string& key, const size_t sizeHint) const
+        configFile = pos->second;
+    }
+    else
     {
-        if (_reads.size() >= _maxPendingOps)
-            return true;
-
-        AsyncRead& asyncRead = _reads[key];
-        if (asyncRead.op)
-            return true; // fetch for key already pending
-
-        asyncRead.op.reset(librados::Rados::aio_create_completion());
-        uint64_t size = sizeHint;
-        if (size == 0)
+        configFile = homeDir + "/.ceph/config";
+        if (!boost::filesystem::exists(configFile))
         {
-            time_t time;
-            const int stat = _context.stat(key, &size, &time);
-            if (stat < 0 || size == 0)
-            {
-                std::cerr << "Stat " << key << " failed: " << ::strerror(-stat)
-                          << std::endl;
-                return false;
-            }
+            configFile.clear();
         }
+    }
+    if (!configFile.empty())
+    {
+        ret = _cluster.conf_read_file(configFile.c_str());
+        if (ret < 0)
+            _throw("Cannot read ceph config '" + configFile + "'", ret);
+    }
 
-        const int read =
-            _context.aio_read(key, asyncRead.op.get(), &asyncRead.bl, size, 0);
-        if (read >= 0)
-            return true;
+    pos = uri.findQuery("keyring");
+    std::string keyringFile;
+    if (pos != uri.queryEnd())
+    {
+        keyringFile = pos->second;
+    }
+    else
+    {
+        keyringFile = homeDir + "/.ceph/keyring";
+        if (!boost::filesystem::exists(keyringFile))
+        {
+            keyringFile.clear();
+        }
+    }
+    if (!keyringFile.empty())
+    {
+        ret = _cluster.conf_set("keyring", keyringFile.c_str());
+        if (ret < 0)
+        {
+            _throw("Cannot read ceph keyring '" + keyringFile + "'", ret);
+        }
+    }
 
-        std::cerr << "Fetch failed: " << ::strerror(-read) << std::endl;
+    ret = _cluster.connect();
+    if (ret < 0)
+        _throw("Could not connect rados cluster", ret);
+
+    ret = _cluster.ioctx_create(poolName.c_str(), _context);
+    if (ret < 0)
+        _throw("Could not create io context", ret);
+
+    pos = uri.findQuery("store");
+    _storeName = (pos == uri.queryEnd())
+                     ? (std::string("keyvMap.") + userName)
+                     : pos->second;
+}
+
+inline Ceph::~Ceph()
+{
+    _context.close();
+    _cluster.shutdown();
+}
+
+inline bool Ceph::handles(const servus::URI& uri)
+{
+    return uri.getScheme() == "ceph";
+}
+
+inline std::string Ceph::getDescription()
+{
+    return "ceph://user@cluster?[store=storeName&config=path&keyring=path]";
+}
+
+inline bool Ceph::insert(const std::string& key, const void* data,
+                         const size_t size)
+{
+    librados::bufferlist bl;
+    bl.append((const char*)data, size);
+
+    int ret = _context.omap_set(_storeName, {{key, std::move(bl)}});
+    if (ret < 0)
+    {
+        std::cerr << "Write failed: " << ::strerror(-ret) << std::endl;
         return false;
     }
+    return true;
+}
 
-    bool _flush(const size_t maxPending)
+inline std::string Ceph::operator[](const std::string& key) const
+{
+    IOMap map;
+    int ret = _context.omap_get_vals_by_keys(_storeName, {key}, &map);
+    if (ret < 0)
     {
-        if (maxPending == 0)
-        {
-            const int flushAll = _context.aio_flush();
-            while (!_writes.empty())
-            {
-                delete _writes.front();
-                _writes.pop_front();
-            }
-            if (flushAll >= 0)
-                return true;
-
-            std::cerr << "Flush all writes failed: " << ::strerror(-flushAll)
-                      << std::endl;
-            return false;
-        }
-
-        bool ok = true;
-        while (_writes.size() > maxPending)
-        {
-            _writes.front()->wait_for_complete();
-            const int write = _writes.front()->get_return_value();
-            if (write < 0)
-            {
-                std::cerr << "Finish write failed: " << ::strerror(-write)
-                          << std::endl;
-                ok = false;
-            }
-            delete _writes.front();
-            _writes.pop_front();
-        }
-        return ok;
+        std::cerr << "Get failed: " << ::strerror(-ret) << std::endl;
+        return std::string();
     }
 
-    librados::bufferlist&& _get(const std::string& key) const
+    auto pos = map.find(key);
+    if (pos == map.end())
     {
-        librados::bufferlist bl;
-        ReadMap::iterator i = _reads.find(key);
-        if (i == _reads.end())
-        {
-            uint64_t size = 0;
-            time_t time;
-            const int stat = _context.stat(key, &size, &time);
-            if (stat < 0 || size == 0)
-            {
-                std::cerr << "Stat '" << key
-                          << "' failed: " << ::strerror(-stat) << std::endl;
-                return std::move(bl);
-            }
-
-            const int read = _context.read(key, bl, size, 0);
-            if (read < 0)
-            {
-                std::cerr << "Read '" << key
-                          << "' failed: " << ::strerror(-read) << std::endl;
-                return std::move(bl);
-            }
-        }
-        else
-        {
-            i->second.op->wait_for_complete();
-            const int read = i->second.op->get_return_value();
-            if (read < 0)
-            {
-                std::cerr << "Finish read '" << key
-                          << "' failed: " << ::strerror(-read) << std::endl;
-                return std::move(bl);
-            }
-
-            i->second.bl.swap(bl);
-            _reads.erase(i);
-        }
-        return std::move(bl);
+        return std::string();
     }
-};
+
+    char* data = pos->second.c_str();
+    std::string str(data, pos->second.length());
+    return str;
+}
+
+inline void Ceph::takeValues(const lunchbox::Strings& keys,
+                             const ValueFunc& func) const
+{
+    IOMap map;
+    int ret = _context.omap_get_vals_by_keys(
+        _storeName, std::set<std::string>(keys.begin(), keys.end()), &map);
+    if (ret < 0)
+    {
+        std::cerr << "Take failed: " << ::strerror(-ret) << std::endl;
+        return;
+    }
+
+    for (auto& pair : map)
+    {
+        librados::bufferlist bl = pair.second;
+        if (bl.length() == 0)
+            continue;
+
+        char* data = pair.second.c_str();
+        char* copy = (char*)malloc(bl.length());
+        std::copy(data, data + bl.length(), copy);
+        func(pair.first, copy, bl.length());
+    }
+}
+
+inline void Ceph::getValues(const lunchbox::Strings& keys,
+                            const ConstValueFunc& func) const
+{
+    IOMap map;
+    int ret = _context.omap_get_vals_by_keys(
+        _storeName, std::set<std::string>(keys.begin(), keys.end()), &map);
+    if (ret < 0)
+    {
+        std::cerr << "Get failed: " << ::strerror(-ret) << std::endl;
+        return;
+    }
+
+    for (auto& pair : map)
+    {
+        if (pair.second.length() == 0)
+            continue;
+        char* data = pair.second.c_str();
+        func(pair.first, data, pair.second.length());
+    }
+}
+
+inline void Ceph::erase(const std::string& key)
+{
+    const int ret = _context.omap_rm_keys(_storeName, {key});
+    if (ret < 0)
+    {
+        std::cerr << "Erase failed: " << ::strerror(-ret) << std::endl;
+    }
+}
 }
