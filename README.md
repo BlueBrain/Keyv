@@ -19,8 +19,8 @@ build environments are tested:
 
 Building from source is as simple as:
 
-    git clone https://github.com/BlueBrain/Keyv.git
+    git clone --recursive https://github.com/BlueBrain/Keyv.git
     mkdir Keyv/build
     cd Keyv/build
-    cmake -GNinja ..
+    cmake -GNinja -DCLONE_SUBPROJECTS=ON ..
     ninja
