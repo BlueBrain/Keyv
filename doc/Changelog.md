@@ -1,6 +1,6 @@
 # Changelog {#Changelog}
 
-# git master
+# Release 1.1 (24-05-2017)
 
 * [15](https://github.com/BlueBrain/Keyv/pull/15):
   Add keyv::Map::erase()
@@ -17,6 +17,7 @@
   Tune memcached performance
 * [9](https://github.com/BlueBrain/Keyv/pull/9):
   Fix reading large amount of data from memcached
+  Use faster Snappy as default compressor
 * [8](https://github.com/BlueBrain/Keyv/pull/8):
   Add compression for memcached
 * [7](https://github.com/BlueBrain/Keyv/pull/7):
