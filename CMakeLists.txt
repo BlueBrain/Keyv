@@ -24,10 +24,16 @@ include(Common)
 
 common_find_package(Boost REQUIRED COMPONENTS unit_test_framework)
 common_find_package(Lunchbox REQUIRED)
-common_find_package(Pression REQUIRED)
 common_find_package(Servus REQUIRED)
 common_find_package(leveldb)
 common_find_package(libmemcached 1.0.12)
+if(libmemcached_FOUND)
+  option(KEYV_MEMCACHED_COMPRESSION "Use compression in memcached backend" OFF)
+  if(KEYV_MEMCACHED_COMPRESSION)
+    git_subproject(Pression https://github.com/Eyescale/Pression.git dc49d02)
+    common_find_package(Pression REQUIRED)
+  endif()
+endif()
 #set(RADOS_FOUND TRUE) # TBD RADOS finder
 #add_definitions(-DKEYV_USE_RADOS) # TBD done be common_package
 common_find_package_post()
