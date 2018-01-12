@@ -243,7 +243,7 @@ public:
      * calling get() for each key.
      *
      * The ownership of the returned data in the callback is transfered, so the
-     * data must be free'd by the caller.
+     * data must be free'd (with free()) by the caller.
      *
      * @param keys list of keys to obtain
      * @param func callback function which is called for each found key

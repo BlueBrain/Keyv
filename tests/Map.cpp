@@ -294,15 +294,6 @@ void benchmark(const std::string& uriStr, const uint64_t queueDepth,
 void benchmarkMultithreaded(const std::string& uriStr, const size_t threadCount,
                             const size_t valueSize)
 {
-    static std::string lastURI;
-    if (uriStr != lastURI)
-    {
-        std::cout
-            << " #thr ,     size,  writes/s,     MB/s,  reads/s,      MB/s"
-            << std::endl;
-        lastURI = uriStr;
-    }
-
     std::vector<Map> maps;
 
     const servus::URI uri(uriStr);
@@ -547,6 +538,11 @@ int main(const int argc, char* argv[])
 
     try
     {
+        if (!tests.empty())
+            std::cout
+                << " #thr ,     size,  writes/s,     MB/s,  reads/s,      MB/s"
+                << std::endl;
+
         while (!tests.empty())
         {
             const TestSpec test = tests.back();

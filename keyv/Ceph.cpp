@@ -62,6 +62,36 @@ public:
 
     bool flush() final { return true; }
 private:
+    template <typename F>
+    void _getValues(const Strings& keys, const F& func, const bool doCopy) const
+    {
+        IOMap map;
+        int ret = _context.omap_get_vals_by_keys(
+            _storeName, std::set<std::string>(keys.begin(), keys.end()), &map);
+        if (ret < 0)
+        {
+            std::cerr << "Take failed: " << ::strerror(-ret) << std::endl;
+            return;
+        }
+
+        for (auto& pair : map)
+        {
+            librados::bufferlist bl = pair.second;
+            if (bl.length() == 0)
+                continue;
+
+            char* data = pair.second.c_str();
+            if (doCopy)
+            {
+                char* copy = (char*)malloc(bl.length());
+                if (!copy)
+                    throw std::bad_alloc();
+                std::copy(data, data + bl.length(), copy);
+                data = copy;
+            }
+            func(pair.first, data, bl.length());
+        }
+    }
     librados::Rados _cluster;
     mutable librados::IoCtx _context;
     std::string _storeName;
@@ -73,7 +103,7 @@ inline Ceph::Ceph(const servus::URI& uri)
 {
     const auto poolName = uri.getUserinfo();
     const auto cephUserName = "client." + poolName;
-    u_int64_t flags = 0;
+    const uint64_t flags = 0;
     int ret =
         _cluster.init2(cephUserName.c_str(), uri.getHost().c_str(), flags);
     if (ret < 0)
@@ -195,47 +225,13 @@ inline std::string Ceph::operator[](const std::string& key) const
 inline void Ceph::takeValues(const lunchbox::Strings& keys,
                              const ValueFunc& func) const
 {
-    IOMap map;
-    int ret = _context.omap_get_vals_by_keys(
-        _storeName, std::set<std::string>(keys.begin(), keys.end()), &map);
-    if (ret < 0)
-    {
-        std::cerr << "Take failed: " << ::strerror(-ret) << std::endl;
-        return;
-    }
-
-    for (auto& pair : map)
-    {
-        librados::bufferlist bl = pair.second;
-        if (bl.length() == 0)
-            continue;
-
-        char* data = pair.second.c_str();
-        char* copy = (char*)malloc(bl.length());
-        std::copy(data, data + bl.length(), copy);
-        func(pair.first, copy, bl.length());
-    }
+    _getValues(keys, func, true);
 }
 
 inline void Ceph::getValues(const lunchbox::Strings& keys,
                             const ConstValueFunc& func) const
 {
-    IOMap map;
-    int ret = _context.omap_get_vals_by_keys(
-        _storeName, std::set<std::string>(keys.begin(), keys.end()), &map);
-    if (ret < 0)
-    {
-        std::cerr << "Get failed: " << ::strerror(-ret) << std::endl;
-        return;
-    }
-
-    for (auto& pair : map)
-    {
-        if (pair.second.length() == 0)
-            continue;
-        char* data = pair.second.c_str();
-        func(pair.first, data, pair.second.length());
-    }
+    _getValues(keys, func, false);
 }
 
 inline void Ceph::erase(const std::string& key)
