@@ -51,7 +51,8 @@ public:
      *
      * Depending on the URI scheme an implementation backend is chosen. If no
      * URI is given, a default one is selected. Available implementations are:
-     * * ceph://path_to_ceph.conf (if KEYV_USE_RADOS is defined)
+     * * ceph://user@cluster?[store=storeName&config=path&keyring=path]
+     *   (if KEYV_USE_RADOS is defined)
      * * leveldb://path (if KEYV_USE_LEVELDB is defined)
      * * memcached://[server] (if KEYV_USE_LIBMEMCACHED is defined)
      *
