@@ -178,7 +178,7 @@ public:
 
     void takeValues(const Strings& keys, const ValueFunc& func) const final
     {
-        const auto decompress = [this](memcached_result_st* fetched,
+        const auto decompress = [](memcached_result_st* fetched,
                                        const size_t size) {
             char* data = memcached_result_take_value(fetched);
             if (!data)
