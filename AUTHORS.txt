@@ -1,4 +1,7 @@
-Juan Hernando
-Ahmet Bilgili
 Stefan Eilemann
-Daniel Nachbaur
+
+Ahmet Bilgili (contributor)
+Juan Bautista Hernando Vieites (contributor)
+Mohamed Ghaith Kaabi (contributor)
+Daniel Nachbaur (contributor)
+Judit Planas Carbonell (contributor)
